@@ -1,0 +1,12 @@
+[package]
+name = "pepl-codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PEPL WASM code generator: verified AST to .wasm binary"
+
+[dependencies]
+pepl-types = { path = "../pepl-types" }
+thiserror.workspace = true
+wasm-encoder = "0.225"
+wasmparser = "0.225"

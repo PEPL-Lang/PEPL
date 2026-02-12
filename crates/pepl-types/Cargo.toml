@@ -1,0 +1,11 @@
+[package]
+name = "pepl-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared types for the PEPL compiler: AST nodes, Span, errors"
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pepl-compiler",
+    "crates/pepl-lexer",
+    "crates/pepl-parser",
+    "crates/pepl-types",
+    "crates/pepl-codegen",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/pepl-lang/pepl"
+
+[workspace.dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
