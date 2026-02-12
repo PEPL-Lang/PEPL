@@ -1,5 +1,7 @@
 //! PEPL lexer: converts source text into a token stream.
 
+pub mod lexer;
 pub mod token;
 
-// Lexer implementation will be added in Phase 2.
+pub use lexer::{LexResult, Lexer};
+pub use token::{Token, TokenKind, ALL_KEYWORDS};

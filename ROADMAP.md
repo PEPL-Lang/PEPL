@@ -32,34 +32,34 @@
 ## Phase 2: Lexer
 
 ### 2.1 Token Types
-- [ ] Define `Token` enum covering all Phase 0 tokens: keywords (39 reserved), operators (17), literals (number, string, bool, nil), identifiers, punctuation, newlines, EOF
-- [ ] Define `TokenKind` and `TokenSpan` (token + source location)
-- [ ] Unit tests for Token type construction
+- [x] Define `Token` enum covering all Phase 0 tokens: keywords (39 reserved), operators (17), literals (number, string, bool, nil), identifiers, punctuation, newlines, EOF
+- [x] Define `TokenKind` and `TokenSpan` (token + source location)
+- [x] Unit tests for Token type construction
 
 ### 2.2 Core Lexer
-- [ ] Implement lexer that converts PEPL source → token stream
-- [ ] Handle single-line comments (`//`) — strip during lexing, not in AST
-- [ ] Reject block comments (`/* */`) with error E603
-- [ ] Handle newline-separated statements (no semicolons)
-- [ ] Handle string literals with escape sequences (`\"`, `\\`, `\n`, `\t`, `\r`, `\$`)
-- [ ] Handle string interpolation (`${expr}`) — emit InterpolationStart/End tokens
-- [ ] Handle number literals (integer and decimal)
-- [ ] Handle all operators: `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `?`, `??`, `...`
-- [ ] Distinguish keywords from identifiers (39 reserved words + module names)
-- [ ] Handle trailing commas
-- [ ] Error recovery: report up to 20 errors, don't stop at first
-- [ ] Produce error E100 for unexpected tokens
+- [x] Implement lexer that converts PEPL source → token stream
+- [x] Handle single-line comments (`//`) — strip during lexing, not in AST
+- [x] Reject block comments (`/* */`) with error E603
+- [x] Handle newline-separated statements (no semicolons)
+- [x] Handle string literals with escape sequences (`\"`, `\\`, `\n`, `\t`, `\r`, `\$`)
+- [x] Handle string interpolation (`${expr}`) — emit InterpolationStart/End tokens
+- [x] Handle number literals (integer and decimal)
+- [x] Handle all operators: `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `>`, `<=`, `>=`, `?`, `??`, `...`
+- [x] Distinguish keywords from identifiers (39 reserved words + module names)
+- [x] Handle trailing commas
+- [x] Error recovery: report up to 20 errors, don't stop at first
+- [x] Produce error E100 for unexpected tokens
 
 ### 2.3 Lexer Tests
-- [ ] Test all 39 reserved keywords
-- [ ] Test all operator tokens
-- [ ] Test number literals (integer, decimal)
-- [ ] Test string literals (plain, escaped, interpolated)
-- [ ] Test comment stripping
-- [ ] Test block comment rejection (E603)
-- [ ] Test module name reservation (cannot shadow `math`, `core`, etc.)
-- [ ] Test newline handling
-- [ ] 100-iteration determinism test: same source → identical token stream × 100
+- [x] Test all 39 reserved keywords
+- [x] Test all operator tokens
+- [x] Test number literals (integer, decimal)
+- [x] Test string literals (plain, escaped, interpolated)
+- [x] Test comment stripping
+- [x] Test block comment rejection (E603)
+- [x] Test module name reservation (cannot shadow `math`, `core`, etc.)
+- [x] Test newline handling
+- [x] 100-iteration determinism test: same source → identical token stream × 100
 
 ---
 
