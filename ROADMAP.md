@@ -66,76 +66,76 @@
 ## Phase 3: Parser
 
 ### 3.1 AST Type Definitions
-- [ ] Define `Program` node (SpaceDecl + TestsBlocks)
-- [ ] Define `SpaceDecl` and `SpaceBody` (enforced block ordering)
-- [ ] Define `TypeDecl` (sum types and type aliases)
-- [ ] Define `StateBlock` and `StateField`
-- [ ] Define `CapabilitiesBlock` (required + optional)
-- [ ] Define `CredentialsBlock` and `CredentialField`
-- [ ] Define `DerivedBlock` and `DerivedField`
-- [ ] Define `InvariantDecl`
-- [ ] Define `ActionDecl` with `ParamList` and `Block`
-- [ ] Define `ViewDecl` and `UIBlock` / `UIElement` / `ComponentExpr`
-- [ ] Define `UpdateDecl` and `HandleEventDecl`
-- [ ] Define `TestsBlock` and `TestCase` (with `WithResponses`)
-- [ ] Define all statement types: `SetStatement`, `LetBinding`, `ReturnStmt`, `AssertStmt`
-- [ ] Define all expression types: `OrExpr` through `PrimaryExpr` (full precedence chain)
-- [ ] Define `MatchExpr`, `MatchArm`, `Pattern`
-- [ ] Define `LambdaExpr` (block-body only)
-- [ ] Define `Type` enum (number, string, bool, nil, any, color, Surface, InputEvent, list<T>, record, Result<T,E>, function types, user-defined)
-- [ ] Define `RecordTypeField` with optional marker (`field?: Type` — omitted optional fields default to nil)
-- [ ] All AST nodes carry `Span` for error reporting
+- [x] Define `Program` node (SpaceDecl + TestsBlocks)
+- [x] Define `SpaceDecl` and `SpaceBody` (enforced block ordering)
+- [x] Define `TypeDecl` (sum types and type aliases)
+- [x] Define `StateBlock` and `StateField`
+- [x] Define `CapabilitiesBlock` (required + optional)
+- [x] Define `CredentialsBlock` and `CredentialField`
+- [x] Define `DerivedBlock` and `DerivedField`
+- [x] Define `InvariantDecl`
+- [x] Define `ActionDecl` with `ParamList` and `Block`
+- [x] Define `ViewDecl` and `UIBlock` / `UIElement` / `ComponentExpr`
+- [x] Define `UpdateDecl` and `HandleEventDecl`
+- [x] Define `TestsBlock` and `TestCase` (with `WithResponses`)
+- [x] Define all statement types: `SetStatement`, `LetBinding`, `ReturnStmt`, `AssertStmt`
+- [x] Define all expression types: `OrExpr` through `PrimaryExpr` (full precedence chain)
+- [x] Define `MatchExpr`, `MatchArm`, `Pattern`
+- [x] Define `LambdaExpr` (block-body only)
+- [x] Define `Type` enum (number, string, bool, nil, any, color, Surface, InputEvent, list<T>, record, Result<T,E>, function types, user-defined)
+- [x] Define `RecordTypeField` with optional marker (`field?: Type` — omitted optional fields default to nil)
+- [x] All AST nodes carry `Span` for error reporting
 
 ### 3.2 Recursive Descent Parser — Declarations
-- [ ] Parse `space Name { ... }` top-level structure
-- [ ] Enforce block ordering: types → state → capabilities → credentials → derived → invariants → actions → views → update → handleEvent (E600)
-- [ ] Parse `type` declarations (sum types with variants, type aliases)
-- [ ] Parse `state { ... }` block (require at least one field)
-- [ ] Parse `capabilities { required: [...], optional: [...] }`
-- [ ] Parse `credentials { ... }` block
-- [ ] Parse `derived { ... }` block
-- [ ] Parse `invariant name { expr }`
-- [ ] Parse `action name(params) { ... }`
-- [ ] Parse `view name(params) -> Surface { ... }`
-- [ ] Parse `update(dt: number) { ... }`
-- [ ] Parse `handleEvent(event: InputEvent) { ... }`
-- [ ] Parse `tests { ... }` block (outside space)
-- [ ] Parse `test "description" [with_responses { ... }] { ... }`
+- [x] Parse `space Name { ... }` top-level structure
+- [x] Enforce block ordering: types → state → capabilities → credentials → derived → invariants → actions → views → update → handleEvent (E600)
+- [x] Parse `type` declarations (sum types with variants, type aliases)
+- [x] Parse `state { ... }` block (require at least one field)
+- [x] Parse `capabilities { required: [...], optional: [...] }`
+- [x] Parse `credentials { ... }` block
+- [x] Parse `derived { ... }` block
+- [x] Parse `invariant name { expr }`
+- [x] Parse `action name(params) { ... }`
+- [x] Parse `view name(params) -> Surface { ... }`
+- [x] Parse `update(dt: number) { ... }`
+- [x] Parse `handleEvent(event: InputEvent) { ... }`
+- [x] Parse `tests { ... }` block (outside space)
+- [x] Parse `test "description" [with_responses { ... }] { ... }`
 
 ### 3.3 Recursive Descent Parser — Statements & Expressions
-- [ ] Parse `set field = expr` and `set record.field.nested = expr`
-- [ ] Parse `let name: Type = expr` and `let _ = expr` (discard binding)
-- [ ] Parse `return` (action-only early exit)
-- [ ] Parse `assert expr [, "message"]`
-- [ ] Parse `if expr { ... } [else { ... } | else if ...]`
-- [ ] Parse `for item [, index] in expr { ... }`
-- [ ] Parse `match expr { Pattern -> expr|block, ... }`
-- [ ] Parse full expression precedence: `or` → `and` → `??` → comparison → `+/-` → `*/%` → unary → postfix → primary
-- [ ] Parse postfix `?` (Result unwrap) and `.field` / `.method()` access
-- [ ] Parse function calls: `name(args)`
-- [ ] Parse list literals: `[expr, ...]`
-- [ ] Parse record literals: `{ field: expr, ...spread, ... }`
-- [ ] Parse lambda expressions: `fn(params) { ... }` (block-body only, reject expression-body E602)
-- [ ] Parse string interpolation expressions within `${...}`
-- [ ] Parse type annotations in all positions
-- [ ] Parse optional record type fields (`name?: Type` in record type annotations)
-- [ ] Reject comparison chaining (`a == b == c` → compile error)
+- [x] Parse `set field = expr` and `set record.field.nested = expr`
+- [x] Parse `let name: Type = expr` and `let _ = expr` (discard binding)
+- [x] Parse `return` (action-only early exit)
+- [x] Parse `assert expr [, "message"]`
+- [x] Parse `if expr { ... } [else { ... } | else if ...]`
+- [x] Parse `for item [, index] in expr { ... }`
+- [x] Parse `match expr { Pattern -> expr|block, ... }`
+- [x] Parse full expression precedence: `or` → `and` → `??` → comparison → `+/-` → `*/%` → unary → postfix → primary
+- [x] Parse postfix `?` (Result unwrap) and `.field` / `.method()` access
+- [x] Parse function calls: `name(args)`
+- [x] Parse list literals: `[expr, ...]`
+- [x] Parse record literals: `{ field: expr, ...spread, ... }`
+- [x] Parse lambda expressions: `fn(params) { ... }` (block-body only, reject expression-body E602)
+- [x] Parse string interpolation expressions within `${...}`
+- [x] Parse type annotations in all positions
+- [x] Parse optional record type fields (`name?: Type` in record type annotations)
+- [x] Reject comparison chaining (`a == b == c` → compile error)
 
 ### 3.4 UI Parsing
-- [ ] Parse `ComponentExpr`: `UpperName { props } [{ children }]`
-- [ ] Parse `PropAssign`: `name: expr [,]`
-- [ ] Distinguish action references from function calls in prop position
-- [ ] Parse `if`/`for` inside UI blocks as UIElements (not Statements)
+- [x] Parse `ComponentExpr`: `UpperName { props } [{ children }]`
+- [x] Parse `PropAssign`: `name: expr [,]`
+- [x] Distinguish action references from function calls in prop position
+- [x] Parse `if`/`for` inside UI blocks as UIElements (not Statements)
 - [ ] Validate Phase 0 component names (Text, Button, TextInput, Column, Row, Scroll, ScrollList, ProgressBar, Modal, Toast) — unknown names produce E402
 
 ### 3.5 Parser Tests
-- [ ] Test all canonical examples from `llm-generation-contract.md` (Counter, TodoList, UnitConverter, WeatherDashboard, PomodoroTimer, HabitTracker, QuizApp)
+- [x] Test all canonical examples from `llm-generation-contract.md` (Counter, TodoList, UnitConverter, WeatherDashboard, PomodoroTimer, HabitTracker, QuizApp)
 - [ ] Test all edge cases from `grammar-edge-cases.md`
-- [ ] Test all operator precedence examples
-- [ ] Test block ordering enforcement (E600)
-- [ ] Test error recovery (multiple errors reported)
+- [x] Test all operator precedence examples
+- [x] Test block ordering enforcement (E600)
+- [x] Test error recovery (multiple errors reported)
 - [ ] Test structural limits (lambda depth ≤ 3, record depth ≤ 4, expression depth ≤ 16, for depth ≤ 3, params ≤ 8)
-- [ ] 100-iteration determinism test: same source → identical AST × 100
+- [x] 100-iteration determinism test: same source → identical AST × 100
 
 ---
 

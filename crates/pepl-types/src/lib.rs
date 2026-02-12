@@ -5,6 +5,7 @@
 
 mod error;
 mod span;
+pub mod ast;
 
 pub use error::{CompileErrors, ErrorCategory, ErrorCode, PeplError, Severity, MAX_ERRORS};
 pub use span::{SourceFile, Span};
