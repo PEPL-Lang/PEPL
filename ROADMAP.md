@@ -1,30 +1,31 @@
 # ROADMAP — pepl (Compiler)
 
-> PEPL compiler: Parser → Type Checker → Invariant Checker → WASM Codegen + Gas Metering.
+> PEPL compiler: Lexer → Parser → Type Checker → Invariant Checker → Evaluator → WASM Codegen.
 > Written in Rust, compiles to WASM (runs in browser Web Worker).
+> See `ORCHESTRATION.md` for cross-repo sequencing.
 
 ---
 
 ## Phase 1: Project Scaffolding & Error Infrastructure
 
 ### 1.1 Cargo Workspace Setup
-- [ ] Create Cargo workspace with crates: `pepl-compiler`, `pepl-lexer`, `pepl-parser`, `pepl-types`, `pepl-codegen`
-- [ ] Configure shared dependencies: `thiserror`, `serde`, `serde_json`
-- [ ] Set up `pepl-types` crate with shared AST types and Span
-- [ ] Workspace-level `cargo build` succeeds
+- [x] Create Cargo workspace with crates: `pepl-compiler`, `pepl-lexer`, `pepl-parser`, `pepl-types`, `pepl-codegen`
+- [x] Configure shared dependencies: `thiserror`, `serde`, `serde_json`
+- [x] Set up `pepl-types` crate with shared AST types and Span
+- [x] Workspace-level `cargo build` succeeds
 
 ### 1.2 Error Infrastructure
-- [ ] Define `PeplError` type with structured error fields (code, message, line, column, end_line, end_column, severity, category, suggestion, source_line)
-- [ ] Define error code ranges: E100–E199 (syntax), E200–E299 (type), E300–E399 (invariant), E400–E499 (capability), E500–E599 (scope), E600–E699 (structure)
-- [ ] Implement JSON serialization for error output
-- [ ] Max 20 errors per compilation (fail-fast)
-- [ ] Unit tests for error formatting and serialization
+- [x] Define `PeplError` type with structured error fields (code, message, line, column, end_line, end_column, severity, category, suggestion, source_line)
+- [x] Define error code ranges: E100–E199 (syntax), E200–E299 (type), E300–E399 (invariant), E400–E499 (capability), E500–E599 (scope), E600–E699 (structure)
+- [x] Implement JSON serialization for error output
+- [x] Max 20 errors per compilation (fail-fast)
+- [x] Unit tests for error formatting and serialization
 
 ### 1.3 Source Location Tracking
-- [ ] Define `Span` type (start_line, start_col, end_line, end_col)
-- [ ] Define `SourceFile` for tracking source text
-- [ ] Helper to extract source line from source text given a Span
-- [ ] Unit tests for span calculations
+- [x] Define `Span` type (start_line, start_col, end_line, end_col)
+- [x] Define `SourceFile` for tracking source text
+- [x] Helper to extract source line from source text given a Span
+- [x] Unit tests for span calculations
 
 ---
 
@@ -82,6 +83,7 @@
 - [ ] Define `MatchExpr`, `MatchArm`, `Pattern`
 - [ ] Define `LambdaExpr` (block-body only)
 - [ ] Define `Type` enum (number, string, bool, nil, any, color, Surface, InputEvent, list<T>, record, Result<T,E>, function types, user-defined)
+- [ ] Define `RecordTypeField` with optional marker (`field?: Type` — omitted optional fields default to nil)
 - [ ] All AST nodes carry `Span` for error reporting
 
 ### 3.2 Recursive Descent Parser — Declarations
@@ -116,6 +118,7 @@
 - [ ] Parse lambda expressions: `fn(params) { ... }` (block-body only, reject expression-body E602)
 - [ ] Parse string interpolation expressions within `${...}`
 - [ ] Parse type annotations in all positions
+- [ ] Parse optional record type fields (`name?: Type` in record type annotations)
 - [ ] Reject comparison chaining (`a == b == c` → compile error)
 
 ### 3.4 UI Parsing
@@ -192,6 +195,7 @@
 - [ ] Test block comment rejection (E603)
 - [ ] Test credential errors (E604, E605)
 - [ ] Test block ordering violation (E600)
+- [ ] Test invariant unreachable (E300) and unknown field reference (E301)
 - [ ] Test nil narrowing works correctly
 - [ ] Test all canonical examples type-check successfully
 - [ ] 100-iteration determinism test
@@ -217,23 +221,121 @@
 
 ---
 
-## Phase 6: WASM Code Generator
+## Phase 6: Tree-Walking Evaluator (pepl-eval)
 
-### 6.1 WASM Module Structure
+> Reference implementation. Executes PEPL programs directly from the typed AST.
+> Validates all language semantics before tackling WASM codegen.
+> Output becomes the golden reference for WASM output validation.
+
+### 6.1 Evaluator Scaffolding
+- [ ] Create `pepl-eval` crate in workspace with dependencies on `pepl-types`, `pepl-parser`
+- [ ] Define `EvalValue` enum (Number, String, Bool, Nil, List, Record, SumVariant, Function, ActionRef, Surface)
+- [ ] Define `EvalError` type (runtime traps, assertion failures, invariant violations)
+- [ ] Define `EvalResult<T>` type alias
+- [ ] Define `Environment` (scoped variable bindings using `BTreeMap`)
+- [ ] Unit tests for `EvalValue` construction and display
+
+### 6.2 State Management & Action Dispatch
+- [ ] Initialize state fields from default expressions (pure stdlib calls only)
+- [ ] Implement `set` statement execution (sequential — each `set` immediately visible)
+- [ ] Implement nested `set` desugaring: `set a.b.c = x` → immutable record update
+- [ ] Implement action dispatch by name with parameter binding
+- [ ] Implement atomic transactions: post-action invariant checking
+- [ ] Implement rollback on invariant failure (revert to pre-action state)
+- [ ] Implement `return` (early exit from action, prior `set` statements applied)
+- [ ] Unit tests for action atomicity and rollback
+- [ ] 100-iteration determinism test for action dispatch
+
+### 6.3 Derived Field Recomputation
+- [ ] Recompute all derived fields after every committed action, in declaration order
+- [ ] Derived fields may reference state and previously declared derived fields
+- [ ] Unit tests for derived field evaluation order
+
+### 6.4 Expression Evaluation
+- [ ] Evaluate all arithmetic operators (`+`, `-`, `*`, `/`, `%`)
+- [ ] Evaluate comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`) with structural equality
+- [ ] Evaluate logical operators (`not`, `and`, `or`) with short-circuit
+- [ ] Evaluate `??` nil-coalescing
+- [ ] Evaluate `?` Result unwrap (trap on Err)
+- [ ] Evaluate `if`/`else` expressions
+- [ ] Evaluate `for` loops (list iteration with item + optional index)
+- [ ] Evaluate `match` expressions (pattern matching on sum types, wildcard)
+- [ ] Evaluate `let` bindings (immutable, no shadowing)
+- [ ] Evaluate `assert` statements (trap on false)
+- [ ] Evaluate function calls (stdlib dispatch via module.function)
+- [ ] Evaluate lambda expressions (capture environment, block-body only)
+- [ ] Evaluate list literals, record literals (including spread), string interpolation
+- [ ] Implement NaN prevention (division by zero → trap, sqrt of negative → trap)
+- [ ] Implement structural equality for records, lists, sum types (functions always false)
+- [ ] Implement `any` type runtime checks on state assignment
+- [ ] Implement nil access trap (`nil.field` → runtime trap)
+- [ ] Unit tests for all expression forms
+- [ ] 100-iteration determinism test for expression evaluation
+
+### 6.5 Stdlib Integration
+- [ ] Route `module.function()` calls to `pepl-stdlib` implementations
+- [ ] Handle `core.log` (capture output for test assertions)
+- [ ] Handle `core.assert` (trap with message)
+- [ ] All 73 pure stdlib functions callable from evaluator
+- [ ] Unit tests for stdlib dispatch
+
+### 6.6 View Rendering
+- [ ] Walk view function bodies to construct `Surface` trees
+- [ ] Evaluate `ComponentExpr` nodes (resolve props, build children)
+- [ ] Handle action references in props (deferred, not eagerly evaluated)
+- [ ] Handle `if`/`for` inside UI blocks (UIElements, not Statements)
+- [ ] Serialize Surface tree to JSON matching host-integration.md format
+- [ ] Unit tests for view rendering
+
+### 6.7 Test Runner
+- [ ] Execute `tests { }` blocks with fresh state per test case
+- [ ] Dispatch actions by calling them as functions: `increment()`, `add_item("task")`
+- [ ] Handle `assert` with optional message
+- [ ] Implement `with_responses { }` — mock capability calls with predetermined Results
+- [ ] Unmocked capability calls return `Err("unmocked_call")`
+- [ ] Report test results (pass/fail with assertion context)
+- [ ] Unit tests for test runner
+
+### 6.8 Capability Call Handling
+- [ ] Capability calls yield `Err("unmocked_call")` outside test `with_responses` context
+- [ ] Inside `with_responses`, match call site to recorded response and return Result
+- [ ] Handle all capability modules: http, storage, location, notifications
+- [ ] Handle credential resolution (read-only bindings)
+- [ ] Unit tests for capability mocking
+
+### 6.9 Game Loop Support
+- [ ] Evaluate `update(dt: number)` with delta time parameter
+- [ ] Evaluate `handleEvent(event: InputEvent)` with event parameter
+- [ ] Gas metering: count loop iterations and function calls, trap on exhaustion
+- [ ] Unit tests for game loop evaluation
+
+### 6.10 Golden Reference Generation
+- [ ] Execute all 7 canonical examples end-to-end in the evaluator
+- [ ] Capture state snapshots after each action dispatch
+- [ ] Capture Surface tree JSON after each render
+- [ ] Store as golden reference fixtures for WASM output validation
+- [ ] 100-iteration determinism test: same programs → identical output × 100
+
+---
+
+## Phase 7: WASM Code Generator
+
+### 7.1 WASM Module Structure
 - [ ] Set up `wasm-encoder` crate dependency
 - [ ] Generate WASM module skeleton: types section, function section, table, memory, exports
 - [ ] Generate WASM imports: `env.host_call`, `env.get_timestamp`, `env.log`, `env.trap`
 - [ ] Generate WASM exports: `init`, `dispatch_action`, `render`, `get_state`, `alloc`, `dealloc`
 - [ ] Conditionally export `update` and `handle_event` (only if space declares them)
+- [ ] Embed PEPL compiler version in WASM custom section
 
-### 6.2 State & Memory Management
+### 7.2 State & Memory Management
 - [ ] Generate memory layout for state fields
 - [ ] Implement `alloc` / `dealloc` exports
 - [ ] Generate `init` function (initialize state to defaults)
 - [ ] Generate `get_state` function (serialize state to JSON)
 - [ ] Handle all PEPL types in WASM memory: number (f64), string, bool, nil, list, record, sum types
 
-### 6.3 Expression Codegen
+### 7.3 Expression Codegen
 - [ ] Generate WASM instructions for all arithmetic operators
 - [ ] Generate WASM instructions for comparison operators
 - [ ] Generate WASM instructions for logical operators (`not`, `and`, `or`)
@@ -248,9 +350,11 @@
 - [ ] Generate `?` postfix (Result unwrap, trap on Err)
 - [ ] Generate `??` nil-coalescing
 - [ ] Generate lambda closures
+- [ ] Generate structural equality for `==`/`!=` (deep record/list/sum comparison, functions always false)
+- [ ] Generate `any` type runtime checks (validate actual value matches declared type on state assignment)
 - [ ] NaN prevention: division and sqrt emit trap-on-NaN guards
 
-### 6.4 Action & View Codegen
+### 7.4 Action & View Codegen
 - [ ] Generate `dispatch_action` function (action ID → handler dispatch)
 - [ ] Generate action bodies (sequential set execution)
 - [ ] Generate `set` with nested field desugaring: `set a.b.c = x` → immutable record update
@@ -260,20 +364,23 @@
 - [ ] Generate UI component tree serialization
 - [ ] Generate action reference callbacks in UI props
 
-### 6.5 Game Loop & Test Codegen
+### 7.5 Game Loop & Test Codegen
 - [ ] Generate `update(dt)` export
 - [ ] Generate `handle_event(event)` export
 - [ ] Generate capability call dispatch via `env.host_call`
 - [ ] Generate credential resolution via capability ID 5
+- [ ] Generate capability call suspension/resume (yield to host via `host_call`, resume with Result)
+- [ ] Generate test execution codegen (fresh state per test, action dispatch, assert checks)
+- [ ] Generate `with_responses` mock capability dispatch for test blocks
 
-### 6.6 Gas Metering
+### 7.6 Gas Metering
 - [ ] Inject gas counter at `for` loop boundaries
 - [ ] Inject gas counter at function/action call sites
 - [ ] Inject gas counter at `update()` call boundaries
 - [ ] Gas exhaustion → WASM trap
 - [ ] Host-configurable gas limit (via import or module constant)
 
-### 6.7 WASM Output Validation
+### 7.7 WASM Output Validation
 - [ ] Validate generated WASM with `wasmparser`
 - [ ] Test all canonical examples compile to valid WASM
 - [ ] Test gas metering is present at all injection points
@@ -283,25 +390,30 @@
 
 ---
 
-## Phase 7: Integration & Packaging
+## Phase 8: Integration & Packaging
 
-### 7.1 End-to-End Pipeline
-- [ ] Wire all stages: source → lexer → parser → type checker → invariant checker → codegen → .wasm
+### 8.1 End-to-End Pipeline
+- [ ] Wire all stages: source → lexer → parser → type checker → invariant checker → evaluator (dev) / codegen (prod) → .wasm
 - [ ] Compile all 7 canonical examples end-to-end
 - [ ] Verify structured error JSON output for invalid inputs
-- [ ] Verify compilation < 2s for typical spaces (< 200 lines)
+- [ ] Verify compilation < 500ms for small spaces (< 200 lines)
 - [ ] Verify compilation < 5s for large spaces (1000+ lines)
+- [ ] Verify action execution < 50ms for all canonical examples
+- [ ] Verify memory per space < 100KB for small spaces
 
-### 7.2 WASM-Pack Build
+### 8.2 WASM-Pack Build
 - [ ] Configure `wasm-pack` for browser target
 - [ ] Expose `compile(source: &str) -> CompileResult` as WASM export
 - [ ] `CompileResult` returns either `.wasm` bytes or structured error JSON
 - [ ] Verify compiler-as-WASM runs in browser Web Worker
 - [ ] Package size target: < 2MB for compiler WASM
 
-### 7.3 Final Validation
-- [ ] All canonical examples: compile → instantiate → init → render → verify output
+### 8.3 Final Validation
+- [ ] All canonical examples: compile → instantiate → init → dispatch actions → render → verify output
 - [ ] Error code coverage: every E-code (E100–E699) has at least one test
+- [ ] Validate WASM import/export contract matches host-integration.md spec
+- [ ] Validate LLM Generation Contract examples compile and execute correctly
+- [ ] WASM output matches evaluator golden reference for all canonical examples
 - [ ] Full determinism proof: 100 iterations across full pipeline
 - [ ] `cargo clippy -- -D warnings` clean
 - [ ] `cargo fmt --check` clean

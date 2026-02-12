@@ -2,10 +2,11 @@
 resolver = "2"
 members = [
     "crates/pepl-compiler",
+    "crates/pepl-codegen",
+    "crates/pepl-eval",
     "crates/pepl-lexer",
     "crates/pepl-parser",
     "crates/pepl-types",
-    "crates/pepl-codegen",
 ]
 
 [workspace.package]

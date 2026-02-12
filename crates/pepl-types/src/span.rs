@@ -6,9 +6,12 @@ use std::fmt;
 /// All line/column values are 1-based for human-readable error messages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Span {
+    #[serde(rename = "line")]
     pub start_line: u32,
+    #[serde(rename = "column")]
     pub start_col: u32,
     pub end_line: u32,
+    #[serde(rename = "end_column")]
     pub end_col: u32,
 }
 

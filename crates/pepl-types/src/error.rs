@@ -282,6 +282,11 @@ mod tests {
         assert!(json.contains("\"message\""));
         assert!(json.contains("\"source_line\""));
         assert!(json.contains("\"suggestion\""));
+        // Verify JSON field names match compiler.md spec
+        assert!(json.contains("\"line\""), "JSON must use 'line' not 'start_line'");
+        assert!(json.contains("\"column\""), "JSON must use 'column' not 'start_col'");
+        assert!(json.contains("\"end_line\""));
+        assert!(json.contains("\"end_column\""), "JSON must use 'end_column' not 'end_col'");
 
         // Round-trip
         let deserialized: PeplError = serde_json::from_str(&json).unwrap();

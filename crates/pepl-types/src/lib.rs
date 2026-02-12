@@ -6,7 +6,7 @@
 mod error;
 mod span;
 
-pub use error::{ErrorCategory, ErrorCode, PeplError, Severity};
+pub use error::{CompileErrors, ErrorCategory, ErrorCode, PeplError, Severity, MAX_ERRORS};
 pub use span::{SourceFile, Span};
 
 /// Result type used throughout the PEPL compiler.
