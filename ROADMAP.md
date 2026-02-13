@@ -232,64 +232,64 @@
 > Output becomes the golden reference for WASM output validation.
 
 ### 6.1 Evaluator Scaffolding
-- [ ] Create `pepl-eval` crate in workspace with dependencies on `pepl-types`, `pepl-parser`
-- [ ] Define `EvalValue` enum (Number, String, Bool, Nil, List, Record, SumVariant, Function, ActionRef, Surface)
-- [ ] Define `EvalError` type (runtime traps, assertion failures, invariant violations)
-- [ ] Define `EvalResult<T>` type alias
-- [ ] Define `Environment` (scoped variable bindings using `BTreeMap`)
-- [ ] Unit tests for `EvalValue` construction and display
+- [x] Create `pepl-eval` crate in workspace with dependencies on `pepl-types`, `pepl-parser`
+- [x] Define `EvalValue` enum — reuses `pepl-stdlib::Value` directly (Number, String, Bool, Nil, List, Record, SumVariant, Function, Color, Result)
+- [x] Define `EvalError` type (runtime traps, assertion failures, invariant violations, gas exhaustion)
+- [x] Define `EvalResult<T>` type alias
+- [x] Define `Environment` (scoped variable bindings with push/pop scope, global snapshot/restore)
+- [x] Unit tests for evaluator construction and gas metering
 
 ### 6.2 State Management & Action Dispatch
-- [ ] Initialize state fields from default expressions (pure stdlib calls only)
-- [ ] Implement `set` statement execution (sequential — each `set` immediately visible)
-- [ ] Implement nested `set` desugaring: `set a.b.c = x` → immutable record update
-- [ ] Implement action dispatch by name with parameter binding
-- [ ] Implement atomic transactions: post-action invariant checking
-- [ ] Implement rollback on invariant failure (revert to pre-action state)
-- [ ] Implement `return` (early exit from action, prior `set` statements applied)
-- [ ] Unit tests for action atomicity and rollback
+- [x] Initialize state fields from default expressions (pure stdlib calls only)
+- [x] Implement `set` statement execution (sequential — each `set` immediately visible)
+- [x] Implement nested `set` desugaring: `set a.b.c = x` → immutable record update
+- [x] Implement action dispatch by name with parameter binding
+- [x] Implement atomic transactions: post-action invariant checking
+- [x] Implement rollback on invariant failure (revert to pre-action state)
+- [x] Implement `return` (early exit from action, prior `set` statements applied)
+- [x] Unit tests for action atomicity and rollback
 - [ ] 100-iteration determinism test for action dispatch
 
 ### 6.3 Derived Field Recomputation
-- [ ] Recompute all derived fields after every committed action, in declaration order
-- [ ] Derived fields may reference state and previously declared derived fields
-- [ ] Unit tests for derived field evaluation order
+- [x] Recompute all derived fields after every committed action, in declaration order
+- [x] Derived fields may reference state and previously declared derived fields
+- [x] Unit tests for derived field evaluation order
 
 ### 6.4 Expression Evaluation
-- [ ] Evaluate all arithmetic operators (`+`, `-`, `*`, `/`, `%`)
-- [ ] Evaluate comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`) with structural equality
-- [ ] Evaluate logical operators (`not`, `and`, `or`) with short-circuit
-- [ ] Evaluate `??` nil-coalescing
-- [ ] Evaluate `?` Result unwrap (trap on Err)
-- [ ] Evaluate `if`/`else` expressions
-- [ ] Evaluate `for` loops (list iteration with item + optional index)
-- [ ] Evaluate `match` expressions (pattern matching on sum types, wildcard)
-- [ ] Evaluate `let` bindings (immutable, no shadowing)
-- [ ] Evaluate `assert` statements (trap on false)
-- [ ] Evaluate function calls (stdlib dispatch via module.function)
-- [ ] Evaluate lambda expressions (capture environment, block-body only)
-- [ ] Evaluate list literals, record literals (including spread), string interpolation
-- [ ] Implement NaN prevention (division by zero → trap, sqrt of negative → trap)
-- [ ] Implement structural equality for records, lists, sum types (functions always false)
+- [x] Evaluate all arithmetic operators (`+`, `-`, `*`, `/`, `%`)
+- [x] Evaluate comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`) with structural equality
+- [x] Evaluate logical operators (`not`, `and`, `or`) with short-circuit
+- [x] Evaluate `??` nil-coalescing
+- [x] Evaluate `?` Result unwrap (trap on Err)
+- [x] Evaluate `if`/`else` expressions
+- [x] Evaluate `for` loops (list iteration with item + optional index)
+- [x] Evaluate `match` expressions (pattern matching on sum types, wildcard)
+- [x] Evaluate `let` bindings (immutable, no shadowing)
+- [x] Evaluate `assert` statements (trap on false)
+- [x] Evaluate function calls (stdlib dispatch via module.function)
+- [x] Evaluate lambda expressions (capture environment, block-body only)
+- [x] Evaluate list literals, record literals (including spread), string interpolation
+- [x] Implement NaN prevention (division by zero → trap, sqrt of negative → trap)
+- [x] Implement structural equality for records, lists, sum types (functions always false)
 - [ ] Implement `any` type runtime checks on state assignment
-- [ ] Implement nil access trap (`nil.field` → runtime trap)
-- [ ] Unit tests for all expression forms
+- [x] Implement nil access trap (`nil.field` → runtime trap)
+- [x] Unit tests for all expression forms
 - [ ] 100-iteration determinism test for expression evaluation
 
 ### 6.5 Stdlib Integration
-- [ ] Route `module.function()` calls to `pepl-stdlib` implementations
-- [ ] Handle `core.log` (capture output for test assertions)
-- [ ] Handle `core.assert` (trap with message)
-- [ ] All 73 pure stdlib functions callable from evaluator
-- [ ] Unit tests for stdlib dispatch
+- [x] Route `module.function()` calls to `pepl-stdlib` implementations
+- [x] Handle `core.log` (capture output for test assertions)
+- [x] Handle `core.assert` (trap with message)
+- [x] All 73 pure stdlib functions callable from evaluator
+- [x] Unit tests for stdlib dispatch
 
 ### 6.6 View Rendering
-- [ ] Walk view function bodies to construct `Surface` trees
-- [ ] Evaluate `ComponentExpr` nodes (resolve props, build children)
-- [ ] Handle action references in props (deferred, not eagerly evaluated)
-- [ ] Handle `if`/`for` inside UI blocks (UIElements, not Statements)
-- [ ] Serialize Surface tree to JSON matching host-integration.md format
-- [ ] Unit tests for view rendering
+- [x] Walk view function bodies to construct `Surface` trees
+- [x] Evaluate `ComponentExpr` nodes (resolve props, build children)
+- [x] Handle action references in props (deferred, not eagerly evaluated)
+- [x] Handle `if`/`for` inside UI blocks (UIElements, not Statements)
+- [x] Serialize Surface tree to JSON matching host-integration.md format
+- [x] Unit tests for view rendering
 
 ### 6.7 Test Runner
 - [ ] Execute `tests { }` blocks with fresh state per test case

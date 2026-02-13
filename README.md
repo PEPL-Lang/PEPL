@@ -18,16 +18,17 @@ PEPL Source → Lexer → Parser → Type Checker → Invariant Checker → Eval
 | `pepl-lexer` | Source → token stream (89 token kinds, string interpolation) | ✅ Phase 2 done |
 | `pepl-parser` | Token stream → AST (recursive descent, precedence climbing) | ✅ Phase 3 done |
 | `pepl-compiler` | Type checker + invariant checker (E402 component validation, Result match bindings) | ✅ Phase 4–5 done |
-| `pepl-eval` | Tree-walking evaluator (reference implementation) | Planned (Phase 6) |
+| `pepl-eval` | Tree-walking evaluator (reference implementation) | ✅ Phase 6 core done |
 | `pepl-codegen` | Verified AST → `.wasm` binary (via `wasm-encoder`) | Planned (Phase 7) |
 
 ## Tests
 
-327 tests across the workspace:
+362 tests across the workspace:
 - `pepl-types`: 19 (error infrastructure, spans)
 - `pepl-lexer`: 80 (64 lexer + 16 token)
 - `pepl-parser`: 121 (64 parser + 57 edge cases)
 - `pepl-compiler`: 107 (70 type checker + 17 invariant checker + 12 M2 gate + 8 error code coverage)
+- `pepl-eval`: 35 (state init, actions, invariants, derived fields, stdlib, views, canonical examples)
 
 ## Build
 

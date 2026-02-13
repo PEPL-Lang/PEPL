@@ -8,6 +8,10 @@ description = "PEPL tree-walking evaluator: reference implementation for executi
 [dependencies]
 pepl-types = { path = "../pepl-types" }
 pepl-parser = { path = "../pepl-parser" }
+pepl-stdlib = { path = "../../../pepl-stdlib" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+pepl-lexer = { path = "../pepl-lexer" }

@@ -3,4 +3,12 @@
 //! Executes PEPL programs directly from the typed AST without WASM compilation.
 //! Used for semantic validation and as the golden reference for WASM output.
 
-// Evaluator implementation will be added in Phase 6 (C6).
+pub mod env;
+pub mod error;
+pub mod evaluator;
+pub mod space;
+
+pub use env::Environment;
+pub use error::{EvalError, EvalResult};
+pub use evaluator::Evaluator;
+pub use space::{ActionResult, SpaceInstance, SurfaceNode};
