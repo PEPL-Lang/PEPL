@@ -8,15 +8,26 @@
 //! - E202: wrong argument count
 //! - E210: non-exhaustive match
 //! - E300: invariant references derived field (unreachable)
+//! - E301: invariant references unknown field
 //! - E400: undeclared capability
-//! - E401: capability unavailable
+//! - E401: capability unavailable (warning — optional capability used without guard)
 //! - E402: unknown component in view
 //! - E500: variable already declared
 //! - E501: `set` outside action / capability used in view
 //! - E502: recursion not allowed (action calls itself)
 //! - E601: derived field modification
-//! - E604: undeclared credential
+//! - E604: undeclared credential in state initializer
 //! - E605: credential modification
+//!
+//! Error codes emitted by lexer/parser (not this checker):
+//! - E100: unexpected token (parser)
+//! - E101: unclosed brace/string (lexer)
+//! - E102: invalid keyword — reserved; keywords produce E100 at parse time
+//! - E600: block ordering violated (parser)
+//! - E602: expression-body lambda (parser)
+//! - E603: block comment used (lexer)
+//! - E606: empty state block (parser)
+//! - E607: structural limit exceeded (parser)
 
 use std::collections::{HashMap, HashSet};
 
@@ -315,6 +326,19 @@ impl<'a> TypeChecker<'a> {
                         expr.span,
                     );
                 }
+                // E604: Cannot reference credentials in state initializers
+                // (credentials are injected at runtime, not available at init time)
+                if self.credentials.contains_key(name) {
+                    self.error_with_suggestion(
+                        ErrorCode::UNDECLARED_CREDENTIAL,
+                        format!(
+                            "state initializer for '{}' cannot reference credential '{}' — credentials are injected at runtime",
+                            field_name, name
+                        ),
+                        expr.span,
+                        "Move this into an action body where credentials are available",
+                    );
+                }
             }
             _ => {
                 // Other expressions in state initializers are questionable
@@ -582,23 +606,25 @@ impl<'a> TypeChecker<'a> {
 
         // Cannot set derived fields
         if self.derived_fields.contains_key(target_name) {
-            self.error(
+            self.error_with_suggestion(
                 ErrorCode::DERIVED_FIELD_MODIFIED,
                 format!(
                     "derived field '{}' is read-only — it recomputes automatically",
                     target_name
                 ),
                 set.span,
+                "Modify the state fields that this derived field depends on instead",
             );
             return;
         }
 
         // Cannot set credentials
         if self.credentials.contains_key(target_name) {
-            self.error(
+            self.error_with_suggestion(
                 ErrorCode::CREDENTIAL_MODIFIED,
                 format!("credential '{}' is read-only", target_name),
                 set.span,
+                "Credentials are injected by the host and cannot be modified in PEPL code",
             );
             return;
         }
@@ -803,6 +829,18 @@ impl<'a> TypeChecker<'a> {
 
                 if let Some(ty) = self.env.lookup(name) {
                     ty.clone()
+                } else if self.env.in_invariant() {
+                    // E301: invariant references a field that doesn't exist
+                    self.error_with_suggestion(
+                        ErrorCode::INVARIANT_UNKNOWN_FIELD,
+                        format!(
+                            "invariant references unknown field '{}' — only state and derived fields are available in invariants",
+                            name
+                        ),
+                        expr.span,
+                        "Check spelling or declare the field in the state {{ }} or derived {{ }} block",
+                    );
+                    Type::Unknown
                 } else {
                     self.error(
                         ErrorCode::TYPE_MISMATCH,
@@ -904,13 +942,14 @@ impl<'a> TypeChecker<'a> {
         // E502: detect direct recursion — action calling itself
         if let Some(ref current) = self.current_action_name {
             if name.name == *current {
-                self.error(
+                self.error_with_suggestion(
                     ErrorCode::RECURSION_NOT_ALLOWED,
                     format!(
                         "action '{}' cannot call itself — recursion is not allowed in PEPL",
                         name.name
                     ),
                     span,
+                    "Use a loop (for) or restructure into separate actions",
                 );
                 // Still type-check arguments for further diagnostics
                 for arg in args {
@@ -984,24 +1023,39 @@ impl<'a> TypeChecker<'a> {
             if !self.required_capabilities.contains(&cap)
                 && !self.optional_capabilities.contains(&cap)
             {
-                self.error(
+                self.error_with_suggestion(
                     ErrorCode::UNDECLARED_CAPABILITY,
                     format!(
                         "module '{}' requires capability '{}' but it is not declared",
                         module.name, cap
                     ),
                     module.span,
+                    "Add the capability to `capabilities { required: [...] }` or `optional: [...]`",
+                );
+            } else if self.optional_capabilities.contains(&cap)
+                && !self.required_capabilities.contains(&cap)
+            {
+                // E401: optional capability used — may be unavailable at runtime
+                self.warning_with_suggestion(
+                    ErrorCode::CAPABILITY_UNAVAILABLE,
+                    format!(
+                        "capability '{}' is optional — this call may fail at runtime if the capability is unavailable",
+                        cap
+                    ),
+                    module.span,
+                    "Guard with `if capability_available(\"{}\") {{ ... }}` or move to `required`",
                 );
             }
             // Cannot use capabilities in views
             if self.env.in_view() {
-                self.error(
+                self.error_with_suggestion(
                     ErrorCode::STATE_MUTATED_OUTSIDE_ACTION,
                     format!(
                         "capability module '{}' cannot be used in views (views must be pure)",
                         module.name
                     ),
                     module.span,
+                    "Move this call into an action body",
                 );
             }
         }
@@ -1555,7 +1609,7 @@ impl<'a> TypeChecker<'a> {
             if let Some(all) = all_variants {
                 let missing: Vec<_> = all.difference(&matched_variants).cloned().collect();
                 if !missing.is_empty() {
-                    self.error(
+                    self.error_with_suggestion(
                         ErrorCode::NON_EXHAUSTIVE_MATCH,
                         format!(
                             "non-exhaustive match: missing variant{} {}",
@@ -1563,6 +1617,7 @@ impl<'a> TypeChecker<'a> {
                             missing.join(", ")
                         ),
                         match_expr.span,
+                        "Add the missing variant arms or use a wildcard `_ => { ... }` arm",
                     );
                 }
             }
@@ -1659,6 +1714,35 @@ impl<'a> TypeChecker<'a> {
             span,
             source_line,
         ));
+    }
+
+    fn error_with_suggestion(
+        &mut self,
+        code: ErrorCode,
+        message: String,
+        span: Span,
+        suggestion: &str,
+    ) {
+        let source_line = self.source.line(span.start_line).unwrap_or("").to_string();
+        self.errors.push_error(
+            pepl_types::PeplError::new(&self.source.name, code, message, span, source_line)
+                .with_suggestion(suggestion),
+        );
+    }
+
+    fn warning_with_suggestion(
+        &mut self,
+        code: ErrorCode,
+        message: String,
+        span: Span,
+        suggestion: &str,
+    ) {
+        let source_line = self.source.line(span.start_line).unwrap_or("").to_string();
+        let mut warning =
+            pepl_types::PeplError::new(&self.source.name, code, message, span, source_line)
+                .with_suggestion(suggestion);
+        warning.severity = pepl_types::Severity::Warning;
+        self.errors.push_warning(warning);
     }
 }
 

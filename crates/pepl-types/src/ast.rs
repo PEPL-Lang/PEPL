@@ -5,13 +5,15 @@
 //! [`BTreeMap`] is NOT used here — AST preserves source order.
 
 use crate::Span;
+#[allow(unused_imports)]
+use serde::{Deserialize, Serialize};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Top Level
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// A complete PEPL program: one space declaration + zero or more test blocks.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Program {
     pub space: SpaceDecl,
     pub tests: Vec<TestsBlock>,
@@ -19,7 +21,7 @@ pub struct Program {
 }
 
 /// `space Name { body }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpaceDecl {
     pub name: Ident,
     pub body: SpaceBody,
@@ -30,7 +32,7 @@ pub struct SpaceDecl {
 ///
 /// Block ordering: types → state → capabilities → credentials → derived →
 /// invariants → actions → views → update → handleEvent
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpaceBody {
     pub types: Vec<TypeDecl>,
     pub state: StateBlock,
@@ -50,7 +52,7 @@ pub struct SpaceBody {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// A spanned identifier.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Ident {
     pub name: String,
     pub span: Span,
@@ -70,7 +72,7 @@ impl Ident {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `type Name = ...`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeDecl {
     pub name: Ident,
     pub body: TypeDeclBody,
@@ -78,7 +80,7 @@ pub struct TypeDecl {
 }
 
 /// The body of a type declaration — either a sum type or a type alias.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TypeDeclBody {
     /// `type Shape = | Circle(radius: number) | Rectangle(width: number, height: number)`
     SumType(Vec<VariantDef>),
@@ -87,7 +89,7 @@ pub enum TypeDeclBody {
 }
 
 /// A sum type variant: `Circle(radius: number)` or `Active` (unit variant).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VariantDef {
     pub name: Ident,
     pub params: Vec<Param>,
@@ -99,14 +101,14 @@ pub struct VariantDef {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `state { field: type = default, ... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StateBlock {
     pub fields: Vec<StateField>,
     pub span: Span,
 }
 
 /// A single state field: `count: number = 0`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StateField {
     pub name: Ident,
     pub type_ann: TypeAnnotation,
@@ -115,7 +117,7 @@ pub struct StateField {
 }
 
 /// `capabilities { required: [...], optional: [...] }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CapabilitiesBlock {
     pub required: Vec<Ident>,
     pub optional: Vec<Ident>,
@@ -123,14 +125,14 @@ pub struct CapabilitiesBlock {
 }
 
 /// `credentials { api_key: string, ... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CredentialsBlock {
     pub fields: Vec<CredentialField>,
     pub span: Span,
 }
 
 /// A credential field: `api_key: string`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CredentialField {
     pub name: Ident,
     pub type_ann: TypeAnnotation,
@@ -138,14 +140,14 @@ pub struct CredentialField {
 }
 
 /// `derived { total: number = list.length(items), ... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DerivedBlock {
     pub fields: Vec<DerivedField>,
     pub span: Span,
 }
 
 /// A derived field: `total: number = list.length(items)`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DerivedField {
     pub name: Ident,
     pub type_ann: TypeAnnotation,
@@ -158,7 +160,7 @@ pub struct DerivedField {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `invariant name { expr }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InvariantDecl {
     pub name: Ident,
     pub condition: Expr,
@@ -170,7 +172,7 @@ pub struct InvariantDecl {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `action name(params) { body }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ActionDecl {
     pub name: Ident,
     pub params: Vec<Param>,
@@ -179,7 +181,7 @@ pub struct ActionDecl {
 }
 
 /// A parameter: `name: type`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Param {
     pub name: Ident,
     pub type_ann: TypeAnnotation,
@@ -187,7 +189,7 @@ pub struct Param {
 }
 
 /// `{ statements... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
@@ -198,7 +200,7 @@ pub struct Block {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `view name(params) -> Surface { ui_elements... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ViewDecl {
     pub name: Ident,
     pub params: Vec<Param>,
@@ -207,14 +209,14 @@ pub struct ViewDecl {
 }
 
 /// A UI block: `{ ui_elements... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UIBlock {
     pub elements: Vec<UIElement>,
     pub span: Span,
 }
 
 /// An element inside a UI block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UIElement {
     /// `Component { props } [{ children }]`
     Component(ComponentExpr),
@@ -227,7 +229,7 @@ pub enum UIElement {
 }
 
 /// A component expression: `Text { value: "hello" }` or `Modal { visible: v } { children }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentExpr {
     pub name: Ident,
     pub props: Vec<PropAssign>,
@@ -236,7 +238,7 @@ pub struct ComponentExpr {
 }
 
 /// A prop assignment: `label: "Click me"`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PropAssign {
     pub name: Ident,
     pub value: Expr,
@@ -244,7 +246,7 @@ pub struct PropAssign {
 }
 
 /// `if` in a UI context — bodies contain UIElements, not Statements.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UIIf {
     pub condition: Expr,
     pub then_block: UIBlock,
@@ -253,14 +255,14 @@ pub struct UIIf {
 }
 
 /// The else branch of a UI if — either another if or a UI block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UIElse {
     ElseIf(Box<UIIf>),
     Block(UIBlock),
 }
 
 /// `for item [, index] in expr { ui... }` in a UI context.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UIFor {
     pub item: Ident,
     pub index: Option<Ident>,
@@ -274,7 +276,7 @@ pub struct UIFor {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `update(dt: number) { body }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UpdateDecl {
     pub param: Param,
     pub body: Block,
@@ -282,7 +284,7 @@ pub struct UpdateDecl {
 }
 
 /// `handleEvent(event: InputEvent) { body }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HandleEventDecl {
     pub param: Param,
     pub body: Block,
@@ -294,14 +296,14 @@ pub struct HandleEventDecl {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// `tests { test_cases... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TestsBlock {
     pub cases: Vec<TestCase>,
     pub span: Span,
 }
 
 /// `test "description" [with_responses { ... }] { body }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TestCase {
     pub description: String,
     pub with_responses: Option<WithResponses>,
@@ -310,14 +312,14 @@ pub struct TestCase {
 }
 
 /// `with_responses { module.function(args) -> value, ... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WithResponses {
     pub mappings: Vec<ResponseMapping>,
     pub span: Span,
 }
 
 /// `module.function(args) -> value`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResponseMapping {
     pub module: Ident,
     pub function: Ident,
@@ -331,7 +333,7 @@ pub struct ResponseMapping {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// A statement in a code block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Stmt {
     /// `set field = expr` or `set record.field.nested = expr`
     Set(SetStmt),
@@ -352,7 +354,7 @@ pub enum Stmt {
 }
 
 /// `set target = value`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SetStmt {
     /// Path segments: `["record", "field", "nested"]`
     pub target: Vec<Ident>,
@@ -361,7 +363,7 @@ pub struct SetStmt {
 }
 
 /// `let name: Type = expr` or `let _ = expr`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LetBinding {
     /// `None` for `let _ = expr` (discard binding)
     pub name: Option<Ident>,
@@ -371,13 +373,13 @@ pub struct LetBinding {
 }
 
 /// `return`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReturnStmt {
     pub span: Span,
 }
 
 /// `assert expr [, "message"]`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AssertStmt {
     pub condition: Expr,
     pub message: Option<String>,
@@ -385,7 +387,7 @@ pub struct AssertStmt {
 }
 
 /// A bare expression statement.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExprStmt {
     pub expr: Expr,
     pub span: Span,
@@ -396,7 +398,7 @@ pub struct ExprStmt {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// An expression node. Uses `Box` for recursive variants.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expr {
     pub kind: ExprKind,
     pub span: Span,
@@ -409,7 +411,7 @@ impl Expr {
 }
 
 /// The kind of expression.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ExprKind {
     // ── Literals ──
     /// `42`, `3.14`
@@ -479,7 +481,7 @@ pub enum ExprKind {
 }
 
 /// A part of an interpolated string.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StringPart {
     /// Literal text segment.
     Literal(String),
@@ -488,7 +490,7 @@ pub enum StringPart {
 }
 
 /// An entry in a record literal.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RecordEntry {
     /// `field: expr`
     Field { name: Ident, value: Expr },
@@ -499,7 +501,7 @@ pub enum RecordEntry {
 // ── Binary Operators ──────────────────────────────────────────────────────────
 
 /// Binary operators (in precedence order, lowest first).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BinOp {
     // Logical
     Or,
@@ -541,7 +543,7 @@ impl BinOp {
 }
 
 /// Unary operators.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnaryOp {
     /// `-x`
     Neg,
@@ -552,7 +554,7 @@ pub enum UnaryOp {
 // ── Control Flow Expressions ──────────────────────────────────────────────────
 
 /// `if cond { stmts... } [else { stmts... } | else if ...]`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IfExpr {
     pub condition: Expr,
     pub then_block: Block,
@@ -561,7 +563,7 @@ pub struct IfExpr {
 }
 
 /// The else branch of an if expression.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ElseBranch {
     /// `else if cond { ... }`
     ElseIf(Box<IfExpr>),
@@ -570,7 +572,7 @@ pub enum ElseBranch {
 }
 
 /// `for item [, index] in iterable { stmts... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ForExpr {
     pub item: Ident,
     pub index: Option<Ident>,
@@ -580,7 +582,7 @@ pub struct ForExpr {
 }
 
 /// `match expr { arms... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchExpr {
     pub subject: Expr,
     pub arms: Vec<MatchArm>,
@@ -588,7 +590,7 @@ pub struct MatchExpr {
 }
 
 /// `Pattern -> expr | { stmts... }`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchArm {
     pub pattern: Pattern,
     pub body: MatchArmBody,
@@ -596,14 +598,14 @@ pub struct MatchArm {
 }
 
 /// The body of a match arm — either a single expression or a block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MatchArmBody {
     Expr(Expr),
     Block(Block),
 }
 
 /// A pattern in a match arm.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Pattern {
     /// `VariantName` or `VariantName(a, b, c)`
     Variant { name: Ident, bindings: Vec<Ident> },
@@ -614,7 +616,7 @@ pub enum Pattern {
 // ── Lambda ────────────────────────────────────────────────────────────────────
 
 /// `fn(params) { body }` — block-body only.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LambdaExpr {
     pub params: Vec<Param>,
     pub body: Block,
@@ -626,7 +628,7 @@ pub struct LambdaExpr {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// A type annotation in PEPL source code.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypeAnnotation {
     pub kind: TypeKind,
     pub span: Span,
@@ -638,8 +640,56 @@ impl TypeAnnotation {
     }
 }
 
+impl std::fmt::Display for TypeAnnotation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl std::fmt::Display for TypeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeKind::Number => write!(f, "number"),
+            TypeKind::String => write!(f, "string"),
+            TypeKind::Bool => write!(f, "bool"),
+            TypeKind::Nil => write!(f, "nil"),
+            TypeKind::Any => write!(f, "any"),
+            TypeKind::Color => write!(f, "color"),
+            TypeKind::Surface => write!(f, "Surface"),
+            TypeKind::InputEvent => write!(f, "InputEvent"),
+            TypeKind::List(inner) => write!(f, "list<{}>", inner),
+            TypeKind::Record(fields) => {
+                write!(f, "{{ ")?;
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    if field.optional {
+                        write!(f, "{}?: {}", field.name.name, field.type_ann)?;
+                    } else {
+                        write!(f, "{}: {}", field.name.name, field.type_ann)?;
+                    }
+                }
+                write!(f, " }}")
+            }
+            TypeKind::Result(ok, err) => write!(f, "Result<{}, {}>", ok, err),
+            TypeKind::Function { params, ret } => {
+                write!(f, "(")?;
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", p)?;
+                }
+                write!(f, ") -> {}", ret)
+            }
+            TypeKind::Named(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 /// The kind of type.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TypeKind {
     /// `number`
     Number,
@@ -673,7 +723,7 @@ pub enum TypeKind {
 }
 
 /// A field in an anonymous record type: `name?: Type`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RecordTypeField {
     pub name: Ident,
     pub optional: bool,

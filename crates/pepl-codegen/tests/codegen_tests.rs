@@ -184,6 +184,7 @@ fn minimal_space_has_required_exports() {
         export_names.contains(&"get_state"),
         "missing get_state export"
     );
+    assert!(export_names.contains(&"dealloc"), "missing dealloc export");
     assert!(export_names.contains(&"alloc"), "missing alloc export");
     assert!(export_names.contains(&"memory"), "missing memory export");
 }
@@ -200,7 +201,7 @@ fn minimal_space_memory_export_is_memory_kind() {
 fn minimal_space_function_exports_are_func_kind() {
     let wasm = compile_source(MINIMAL_SPACE);
     let exports = get_exports(&wasm);
-    for name in &["init", "dispatch_action", "render", "get_state", "alloc"] {
+    for name in &["init", "dispatch_action", "render", "get_state", "dealloc", "alloc"] {
         let exp = exports.iter().find(|(n, _)| n == name).unwrap();
         assert_eq!(
             exp.1,
@@ -211,9 +212,9 @@ fn minimal_space_function_exports_are_func_kind() {
 }
 
 #[test]
-fn minimal_space_has_three_imports() {
+fn minimal_space_has_four_imports() {
     let wasm = compile_source(MINIMAL_SPACE);
-    assert_eq!(get_import_count(&wasm), 3); // host_call, log, trap
+    assert_eq!(get_import_count(&wasm), 4); // host_call, log, trap, get_timestamp
 }
 
 #[test]

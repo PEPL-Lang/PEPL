@@ -220,6 +220,13 @@ impl<'a> Compiler<'a> {
         types
             .ty()
             .function(vec![ValType::I32, ValType::F64], vec![]);
+        // TYPE_VOID_I64: () -> i64
+        types.ty().function(vec![], vec![ValType::I64]);
+        // TYPE_I32X3_VOID: (i32, i32, i32) -> ()
+        types.ty().function(
+            vec![ValType::I32, ValType::I32, ValType::I32],
+            vec![],
+        );
 
         types
     }
@@ -235,6 +242,8 @@ impl<'a> Compiler<'a> {
         imports.import("env", "log", EntityType::Function(TYPE_I32X2_VOID));
         // IMPORT_TRAP: env.trap(ptr, len)
         imports.import("env", "trap", EntityType::Function(TYPE_I32X2_VOID));
+        // IMPORT_GET_TIMESTAMP: env.get_timestamp() -> i64
+        imports.import("env", "get_timestamp", EntityType::Function(TYPE_VOID_I64));
 
         imports
     }
@@ -312,7 +321,10 @@ impl<'a> Compiler<'a> {
 
         // RT_ALLOC
         func_section.function(TYPE_I32_I32);
-        code_section.function(&runtime::emit_alloc());
+        code_section.function(&runtime::emit_alloc(
+            self.data.oom_ptr,
+            self.data.oom_len,
+        ));
 
         // RT_VAL_NIL
         func_section.function(TYPE_VOID_I32);
@@ -429,11 +441,11 @@ impl<'a> Compiler<'a> {
         // ── Space-level functions ────────────────────────────────────────
         let body = &self.program.space.body;
 
-        // init(gas_limit: i32)
+        // init() -> void  (parameterless — gas limit set to default constant)
         let init_idx = IMPORT_COUNT + RT_FUNC_COUNT;
-        func_section.function(TYPE_I32_VOID);
+        func_section.function(TYPE_VOID_VOID);
         let mut init_scratch = Function::new(vec![]);
-        let mut init_ctx = self.make_func_context(1); // 1 param
+        let mut init_ctx = self.make_func_context(0); // 0 params
         crate::space::emit_init(
             &body.state,
             body.derived.as_ref(),
@@ -443,11 +455,11 @@ impl<'a> Compiler<'a> {
         self.merge_user_data(&init_ctx);
         code_section.function(&Self::finalize_function(init_scratch, &init_ctx));
 
-        // dispatch_action(action_id: i32, args_ptr: i32) -> i32
+        // dispatch_action(action_id: i32, payload_ptr: i32, payload_len: i32) -> void
         let dispatch_idx = init_idx + 1;
-        func_section.function(TYPE_I32X2_I32);
+        func_section.function(TYPE_I32X3_VOID);
         let mut dispatch_scratch = Function::new(vec![]);
-        let mut dispatch_ctx = self.make_func_context(2);
+        let mut dispatch_ctx = self.make_func_context(3); // 3 params
         crate::space::emit_dispatch_action(
             &body.actions,
             &body.invariants,
@@ -478,8 +490,17 @@ impl<'a> Compiler<'a> {
         // alloc(size: i32) -> i32 (re-export of RT_ALLOC for host use)
         // Already part of runtime, we'll just export RT_ALLOC directly.
 
+        // dealloc(ptr: i32, size: i32) -> void (no-op for bump allocator)
+        let dealloc_idx = get_state_idx + 1;
+        func_section.function(TYPE_I32X2_VOID);
+        let mut dealloc_func = Function::new(vec![]);
+        // Bump allocator — dealloc is intentionally a no-op.
+        // ptr (param 0) and size (param 1) are accepted but ignored.
+        dealloc_func.instruction(&Instruction::End);
+        code_section.function(&dealloc_func);
+
         // Conditionally: update(dt_ptr: i32)
-        let mut next_idx = get_state_idx + 1;
+        let mut next_idx = dealloc_idx + 1;
         if let Some(update_decl) = &body.update {
             self.function_table
                 .insert("update".to_string(), next_idx);
@@ -609,6 +630,7 @@ impl<'a> Compiler<'a> {
         exports.export("dispatch_action", ExportKind::Func, base + 1);
         exports.export("render", ExportKind::Func, base + 2);
         exports.export("get_state", ExportKind::Func, base + 3);
+        exports.export("dealloc", ExportKind::Func, base + 4);
         exports.export("alloc", ExportKind::Func, IMPORT_COUNT + runtime::RT_ALLOC);
         exports.export("memory", ExportKind::Memory, 0);
 
@@ -951,6 +973,8 @@ pub struct DataSegmentTrackerClone {
     pub invariant_failed_len: u32,
     pub unwrap_failed_ptr: u32,
     pub unwrap_failed_len: u32,
+    pub oom_ptr: u32,
+    pub oom_len: u32,
     pub next_offset: u32,
 }
 
@@ -988,6 +1012,8 @@ impl DataSegmentTracker {
             invariant_failed_len: self.invariant_failed_len,
             unwrap_failed_ptr: self.unwrap_failed_ptr,
             unwrap_failed_len: self.unwrap_failed_len,
+            oom_ptr: self.oom_ptr,
+            oom_len: self.oom_len,
             next_offset: self.next_offset,
         }
     }

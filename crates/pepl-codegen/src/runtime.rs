@@ -136,17 +136,78 @@ pub const fn rt_func_idx(rt_offset: u32) -> u32 {
 ///
 /// Bump allocator: returns the current `heap_ptr`, then advances it by `size`.
 /// If we exceed memory, call `memory.grow`.
-pub fn emit_alloc() -> Function {
-    let mut f = Function::new(vec![(1, ValType::I32)]); // local 1: old_ptr
+pub fn emit_alloc(oom_ptr: u32, oom_len: u32) -> Function {
+    let mut f = Function::new(vec![
+        (1, ValType::I32), // local 1: old_ptr
+        (1, ValType::I32), // local 2: new_ptr
+        (1, ValType::I32), // local 3: pages_needed
+    ]);
     // old_ptr = heap_ptr
     f.instruction(&Instruction::GlobalGet(GLOBAL_HEAP_PTR));
     f.instruction(&Instruction::LocalSet(1));
-    // heap_ptr += size
+    // new_ptr = heap_ptr + size
     f.instruction(&Instruction::GlobalGet(GLOBAL_HEAP_PTR));
     f.instruction(&Instruction::LocalGet(0)); // param: size
     f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(2));
+
+    // Check if new_ptr exceeds current memory
+    // current_bytes = memory.size * 65536
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::MemorySize(0));
+    f.instruction(&Instruction::I32Const(16)); // shift left 16 = * 65536
+    f.instruction(&Instruction::I32Shl);
+    f.instruction(&Instruction::I32GtU);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    {
+        // pages_needed = ceil((new_ptr - current_bytes) / 65536)
+        f.instruction(&Instruction::LocalGet(2));
+        f.instruction(&Instruction::MemorySize(0));
+        f.instruction(&Instruction::I32Const(16));
+        f.instruction(&Instruction::I32Shl);
+        f.instruction(&Instruction::I32Sub);
+        f.instruction(&Instruction::I32Const(65535));
+        f.instruction(&Instruction::I32Add);
+        f.instruction(&Instruction::I32Const(16));
+        f.instruction(&Instruction::I32ShrU);
+        f.instruction(&Instruction::LocalSet(3));
+
+        // Check max memory limit
+        f.instruction(&Instruction::MemorySize(0));
+        f.instruction(&Instruction::LocalGet(3));
+        f.instruction(&Instruction::I32Add);
+        f.instruction(&Instruction::I32Const(MAX_MEMORY_PAGES as i32));
+        f.instruction(&Instruction::I32GtU);
+        f.instruction(&Instruction::If(BlockType::Empty));
+        {
+            // Exceeded max memory — trap with OOM
+            f.instruction(&Instruction::I32Const(oom_ptr as i32));
+            f.instruction(&Instruction::I32Const(oom_len as i32));
+            f.instruction(&Instruction::Call(IMPORT_TRAP));
+            f.instruction(&Instruction::Unreachable);
+        }
+        f.instruction(&Instruction::End);
+
+        // memory.grow(pages_needed)
+        f.instruction(&Instruction::LocalGet(3));
+        f.instruction(&Instruction::MemoryGrow(0));
+        // Check if grow failed (-1)
+        f.instruction(&Instruction::I32Const(-1));
+        f.instruction(&Instruction::I32Eq);
+        f.instruction(&Instruction::If(BlockType::Empty));
+        {
+            f.instruction(&Instruction::I32Const(oom_ptr as i32));
+            f.instruction(&Instruction::I32Const(oom_len as i32));
+            f.instruction(&Instruction::Call(IMPORT_TRAP));
+            f.instruction(&Instruction::Unreachable);
+        }
+        f.instruction(&Instruction::End);
+    }
+    f.instruction(&Instruction::End);
+
+    // heap_ptr = new_ptr
+    f.instruction(&Instruction::LocalGet(2));
     f.instruction(&Instruction::GlobalSet(GLOBAL_HEAP_PTR));
-    // TODO: memory.grow if needed
     // return old_ptr
     f.instruction(&Instruction::LocalGet(1));
     f.instruction(&Instruction::End);
@@ -1238,6 +1299,8 @@ pub struct DataSegmentTracker {
     pub invariant_failed_len: u32,
     pub unwrap_failed_ptr: u32,
     pub unwrap_failed_len: u32,
+    pub oom_ptr: u32,
+    pub oom_len: u32,
     /// Next free offset in the data segment.
     pub next_offset: u32,
 }
@@ -1293,6 +1356,10 @@ impl DataSegmentTracker {
         let unwrap_failed_len = 14u32; // "unwrap on Err"
         offset += unwrap_failed_len;
 
+        let oom_ptr = offset;
+        let oom_len = 13u32; // "out of memory"
+        offset += oom_len;
+
         Self {
             true_ptr,
             true_len,
@@ -1314,6 +1381,8 @@ impl DataSegmentTracker {
             invariant_failed_len,
             unwrap_failed_ptr,
             unwrap_failed_len,
+            oom_ptr,
+            oom_len,
             next_offset: offset,
         }
     }
@@ -1331,6 +1400,7 @@ impl DataSegmentTracker {
         buf.extend_from_slice(b"assertion failed");
         buf.extend_from_slice(b"invariant violated");
         buf.extend_from_slice(b"unwrap on Err!");
+        buf.extend_from_slice(b"out of memory");
         buf
     }
 

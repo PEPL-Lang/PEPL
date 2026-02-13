@@ -13,3 +13,4 @@ pepl-codegen = { path = "../pepl-codegen" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true

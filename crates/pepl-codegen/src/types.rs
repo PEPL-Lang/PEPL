@@ -59,9 +59,11 @@ pub const IMPORT_HOST_CALL: u32 = 0;
 pub const IMPORT_LOG: u32 = 1;
 /// `env.trap(ptr: i32, len: i32)` — aborts execution with a message.
 pub const IMPORT_TRAP: u32 = 2;
+/// `env.get_timestamp() -> i64` — deterministic event timestamp (milliseconds).
+pub const IMPORT_GET_TIMESTAMP: u32 = 3;
 
 /// Number of imported functions (offset for locally-defined function indices).
-pub const IMPORT_COUNT: u32 = 3;
+pub const IMPORT_COUNT: u32 = 4;
 
 // ── WASM type indices ────────────────────────────────────────────────────────
 // Fixed type indices in the type section (see compiler.rs emit_types).
@@ -84,9 +86,13 @@ pub const TYPE_I32X3_I32: u32 = 6;
 pub const TYPE_F64_I32: u32 = 7;
 /// `(i32, f64) -> ()`
 pub const TYPE_I32_F64_VOID: u32 = 8;
+/// `() -> i64`
+pub const TYPE_VOID_I64: u32 = 9;
+/// `(i32, i32, i32) -> ()`
+pub const TYPE_I32X3_VOID: u32 = 10;
 
 /// Total number of fixed type signatures.
-pub const TYPE_COUNT: u32 = 9;
+pub const TYPE_COUNT: u32 = 11;
 
 // ── Memory ───────────────────────────────────────────────────────────────────
 

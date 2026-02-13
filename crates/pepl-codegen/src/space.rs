@@ -1,8 +1,8 @@
 //! Space-level code generation.
 //!
 //! Generates the top-level exported functions:
-//! - `init(gas_limit: i32)` — initialise state to defaults
-//! - `dispatch_action(action_id: i32, args_ptr: i32) -> i32` — run an action
+//! - `init()` — initialise state to defaults (gas limit set to default constant)
+//! - `dispatch_action(action_id: i32, payload_ptr: i32, payload_len: i32)` — run an action
 //! - `render(view_id: i32) -> i32` — render a view to Surface tree
 //! - `get_state() -> i32` — return current state as a record value ptr
 //! - Conditionally: `update(dt_ptr: i32)`, `handle_event(event_ptr: i32)`
@@ -22,9 +22,12 @@ use crate::types::*;
 // init
 // ══════════════════════════════════════════════════════════════════════════════
 
-/// Emit the `init(gas_limit: i32)` function.
+/// Default gas limit when init is called without parameters.
+const DEFAULT_GAS_LIMIT: i32 = 1_000_000;
+
+/// Emit the `init()` function (parameterless).
 ///
-/// - Sets global gas_limit
+/// - Sets global gas_limit to DEFAULT_GAS_LIMIT
 /// - Resets gas counter to 0
 /// - Evaluates each state field's default expression
 /// - Builds the state record
@@ -35,8 +38,8 @@ pub fn emit_init(
     ctx: &mut FuncContext,
     f: &mut Function,
 ) -> CodegenResult<()> {
-    // gas_limit = param 0
-    f.instruction(&Instruction::LocalGet(0));
+    // gas_limit = DEFAULT_GAS_LIMIT (no param — parameterless init)
+    f.instruction(&Instruction::I32Const(DEFAULT_GAS_LIMIT));
     f.instruction(&Instruction::GlobalSet(GLOBAL_GAS_LIMIT));
     // gas = 0
     f.instruction(&Instruction::I32Const(0));
@@ -92,10 +95,13 @@ pub fn emit_init(
 // dispatch_action
 // ══════════════════════════════════════════════════════════════════════════════
 
-/// Emit the `dispatch_action(action_id: i32, args_ptr: i32) -> i32` function.
+/// Emit the `dispatch_action(action_id: i32, payload_ptr: i32, payload_len: i32)` function.
 ///
 /// Dispatches to the appropriate action handler based on action_id.
+/// `payload_ptr` (param 1) is a pointer to the arguments list value.
+/// `payload_len` (param 2) is reserved for future use (byte length of serialised payload).
 /// Checks invariants after execution and rolls back on failure.
+/// Returns void.
 pub fn emit_dispatch_action(
     actions: &[ActionDecl],
     invariants: &[InvariantDecl],
@@ -114,10 +120,6 @@ pub fn emit_dispatch_action(
 
     // Switch on action_id (param 0)
     // We emit a chain of if/else: if action_id == 0 { ... } else if == 1 { ... } ...
-    let result_local = ctx.alloc_local(ValType::I32);
-    f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_NIL)));
-    f.instruction(&Instruction::LocalSet(result_local));
-
     f.instruction(&Instruction::Block(BlockType::Empty)); // outer break target
 
     for (i, action) in actions.iter().enumerate() {
@@ -126,11 +128,12 @@ pub fn emit_dispatch_action(
         f.instruction(&Instruction::I32Eq);
         f.instruction(&Instruction::If(BlockType::Empty));
 
-        // Bind action parameters from args_ptr (param 1)
+        // Bind action parameters from payload_ptr (param 1)
+        // payload_ptr is a PEPL list value — extract elements by index
+        // param 2 (payload_len) reserved for future use
         for (pi, param) in action.params.iter().enumerate() {
             let param_local = ctx.alloc_local(ValType::I32);
-            // args is a list value — get element by index
-            f.instruction(&Instruction::LocalGet(1)); // args_ptr
+            f.instruction(&Instruction::LocalGet(1)); // payload_ptr
             f.instruction(&Instruction::I32Const(pi as i32));
             f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_LIST_GET)));
             f.instruction(&Instruction::LocalSet(param_local));
@@ -174,8 +177,7 @@ pub fn emit_dispatch_action(
         f.instruction(&Instruction::End);
     }
 
-    // Return result (nil for actions — they mutate state)
-    f.instruction(&Instruction::LocalGet(result_local));
+    // void return — no value pushed
     f.instruction(&Instruction::End);
     Ok(())
 }

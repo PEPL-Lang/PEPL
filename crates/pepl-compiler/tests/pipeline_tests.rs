@@ -527,7 +527,9 @@ fn wasm_contains_custom_pepl_section() {
     let wasm = compile(COUNTER, "counter.pepl").unwrap();
     // Custom section has name "pepl" — search for the UTF-8 bytes
     let pepl_bytes = b"pepl";
-    let found = wasm.windows(pepl_bytes.len()).any(|w| w == pepl_bytes);
+    let found = wasm
+        .windows(pepl_bytes.len())
+        .any(|w| w == pepl_bytes);
     assert!(found, "WASM must contain custom 'pepl' section");
 }
 
@@ -626,4 +628,131 @@ fn compile_result_serializes_to_json() {
     let result = compile_to_result("invalid", "err.pepl");
     let json = serde_json::to_string_pretty(&result).unwrap();
     assert!(json.contains("\"success\":false") || json.contains("\"success\": false"));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 10.1 CompileResult Enrichment Tests
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn compile_result_has_source_hash() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    assert!(!result.source_hash.is_empty(), "source_hash must be set");
+    assert_eq!(result.source_hash.len(), 64, "SHA-256 hex is 64 chars");
+    // All hex chars
+    assert!(result.source_hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+#[test]
+fn compile_result_has_wasm_hash() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    let hash = result.wasm_hash.as_ref().expect("wasm_hash present on success");
+    assert_eq!(hash.len(), 64, "SHA-256 hex is 64 chars");
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+#[test]
+fn compile_result_has_state_fields() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    assert!(
+        !result.state_fields.is_empty(),
+        "Counter has state fields"
+    );
+    let field_names: Vec<&str> = result.state_fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(
+        field_names.contains(&"count"),
+        "Counter should have 'count' field, got: {:?}",
+        field_names
+    );
+}
+
+#[test]
+fn compile_result_has_actions() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    assert!(
+        !result.actions.is_empty(),
+        "Counter has actions"
+    );
+    let action_names: Vec<&str> = result.actions.iter().map(|a| a.name.as_str()).collect();
+    assert!(
+        action_names.contains(&"increment"),
+        "Counter should have 'increment' action, got: {:?}",
+        action_names
+    );
+}
+
+#[test]
+fn compile_result_has_views() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    assert!(
+        !result.views.is_empty(),
+        "Counter has views"
+    );
+    assert!(
+        result.views.contains(&"main".to_string()),
+        "Counter should have 'main' view"
+    );
+}
+
+#[test]
+fn compile_result_has_versions() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(!result.language_version.is_empty());
+    assert!(!result.compiler_version.is_empty());
+    assert_eq!(result.language_version, "0.1.0");
+    assert_eq!(result.compiler_version, env!("CARGO_PKG_VERSION"));
+}
+
+#[test]
+fn compile_result_has_ast() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    assert!(result.ast.is_some(), "AST must be present");
+    let ast = result.ast.as_ref().unwrap();
+    assert_eq!(ast.space.name.name, "Counter");
+}
+
+#[test]
+fn compile_result_ast_serializes_to_json() {
+    let result = compile_to_result(COUNTER, "counter.pepl");
+    assert!(result.success);
+    let json = serde_json::to_string(&result).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(parsed["ast"].is_object(), "AST should serialize as JSON object");
+    assert!(
+        parsed["ast"]["space"]["name"]["name"] == "Counter",
+        "AST name should be Counter"
+    );
+}
+
+#[test]
+fn compile_result_source_hash_deterministic() {
+    let r1 = compile_to_result(COUNTER, "counter.pepl");
+    let r2 = compile_to_result(COUNTER, "counter.pepl");
+    assert_eq!(r1.source_hash, r2.source_hash, "Same source → same hash");
+}
+
+#[test]
+fn compile_result_wasm_hash_deterministic() {
+    let r1 = compile_to_result(COUNTER, "counter.pepl");
+    let r2 = compile_to_result(COUNTER, "counter.pepl");
+    assert_eq!(r1.wasm_hash, r2.wasm_hash, "Same source → same WASM hash");
+}
+
+#[test]
+fn compile_result_error_still_has_metadata() {
+    // Even failed compilations should include some metadata
+    let result = compile_to_result("space { invalid", "bad.pepl");
+    assert!(!result.success);
+    // Source hash should still be present
+    assert!(!result.source_hash.is_empty());
+    assert_eq!(result.source_hash.len(), 64);
+    // Versions should still be present
+    assert!(!result.language_version.is_empty());
+    assert!(!result.compiler_version.is_empty());
 }

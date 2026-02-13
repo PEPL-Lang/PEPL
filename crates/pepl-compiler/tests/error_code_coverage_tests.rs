@@ -57,15 +57,31 @@ fn e101_unclosed_brace() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// E102: INVALID_KEYWORD — reserved for future use
-// (defined but not currently emitted; tested as a valid ErrorCode constant)
+// E102: INVALID_KEYWORD — handled by lexer→parser
+// Keywords are tokenized as keyword tokens by the lexer. Using a keyword
+// as an identifier produces E100 (UNEXPECTED_TOKEN) at parse time.
+// E102 is defined as a more specific variant but currently all keyword
+// misuse falls through to E100 in the parser.
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
 fn e102_error_code_defined() {
-    // E102 is reserved for future keyword validation rules.
-    // Verify the constant exists and has the expected value.
+    // E102 is defined for keyword validation. Currently, keyword misuse
+    // produces E100 at parse time because the lexer tokenizes keywords.
     assert_eq!(ErrorCode::INVALID_KEYWORD.0, 102);
+    // Verify that using a keyword as a variable name triggers a parse error
+    let errors = check(
+        r#"
+space App {
+  state { x: number = 0 }
+  action run() {
+    let state = 5
+  }
+  view main() -> Surface { Text { value: "hi" } }
+}
+"#,
+    );
+    assert!(errors.has_errors(), "using keyword as identifier should error");
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -80,15 +96,46 @@ fn e102_error_code_defined() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════════════════
-// E301: INVARIANT_UNKNOWN_FIELD — reserved for future use
-// (intended for invariant expressions that reference non-existent fields;
-//  currently, unknown variables in invariants emit E201 TYPE_MISMATCH)
+// E301: INVARIANT_UNKNOWN_FIELD — emitted by checker
+// When an invariant expression references an identifier that is not a
+// state field, derived field, or parameter — gives more specific diagnostics
+// than generic E201 for invariant contexts.
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e301_error_code_defined() {
-    // E301 is reserved for more specific invariant diagnostics in future phases.
-    assert_eq!(ErrorCode::INVARIANT_UNKNOWN_FIELD.0, 301);
+fn e301_invariant_unknown_field() {
+    assert_error(
+        r#"
+space App {
+  state { count: number = 0 }
+  invariant positive { nonexistent_field > 0 }
+  view main() -> Surface { Text { value: "hi" } }
+}
+"#,
+        ErrorCode::INVARIANT_UNKNOWN_FIELD,
+    );
+}
+
+#[test]
+fn e301_invariant_unknown_field_has_suggestion() {
+    let errors = check(
+        r#"
+space App {
+  state { count: number = 0 }
+  invariant positive { nonexistent_field > 0 }
+  view main() -> Surface { Text { value: "hi" } }
+}
+"#,
+    );
+    let err = errors
+        .errors
+        .iter()
+        .find(|e| e.code == ErrorCode::INVARIANT_UNKNOWN_FIELD)
+        .expect("expected E301");
+    assert!(
+        err.suggestion.is_some(),
+        "E301 should include a suggestion"
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -96,15 +143,69 @@ fn e301_error_code_defined() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════════════════
-// E401: CAPABILITY_UNAVAILABLE — reserved for future runtime use
-// (intended for when a declared capability is unavailable on the target
-//  platform; this is a runtime/deployment concept, not compile-time)
+// E401: CAPABILITY_UNAVAILABLE — emitted as warning by checker
+// When an optional capability module is used, the checker emits a warning
+// that the call may fail at runtime if the capability is unavailable.
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e401_error_code_defined() {
-    // E401 is reserved for runtime capability availability checks.
-    assert_eq!(ErrorCode::CAPABILITY_UNAVAILABLE.0, 401);
+fn e401_optional_capability_warning() {
+    let errors = check(
+        r#"
+space App {
+  state { data: string = "" }
+  capabilities {
+    required: []
+    optional: [http]
+  }
+  action fetch_data() {
+    let result = http.get("https://example.com")?
+    set data = result
+  }
+  view main() -> Surface { Text { value: data } }
+}
+"#,
+    );
+    let has_warning = errors
+        .warnings
+        .iter()
+        .any(|w| w.code == ErrorCode::CAPABILITY_UNAVAILABLE);
+    assert!(
+        has_warning,
+        "expected E401 warning for optional capability usage, got warnings: {:?}",
+        errors
+            .warnings
+            .iter()
+            .map(|w| format!("{}: {}", w.code, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn e401_required_capability_no_warning() {
+    let errors = check(
+        r#"
+space App {
+  state { data: string = "" }
+  capabilities {
+    required: [http]
+  }
+  action fetch_data() {
+    let result = http.get("https://example.com")?
+    set data = result
+  }
+  view main() -> Surface { Text { value: data } }
+}
+"#,
+    );
+    let has_warning = errors
+        .warnings
+        .iter()
+        .any(|w| w.code == ErrorCode::CAPABILITY_UNAVAILABLE);
+    assert!(
+        !has_warning,
+        "required capability should NOT produce E401 warning"
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -160,15 +261,50 @@ space App {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// E604: UNDECLARED_CREDENTIAL — reserved for future use
-// (intended for referencing credentials not declared in `credentials { }`;
-//  currently, credentials become regular variables via env.define)
+// E604: UNDECLARED_CREDENTIAL — emitted by checker
+// When a state initializer references a credential variable, the checker
+// emits E604 because credentials are injected at runtime and not available
+// during state initialization.
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e604_error_code_defined() {
-    // E604 is reserved for credential scoping rules in future phases.
-    assert_eq!(ErrorCode::UNDECLARED_CREDENTIAL.0, 604);
+fn e604_credential_in_state_initializer() {
+    assert_error(
+        r#"
+space App {
+  state { api_url: string = api_key }
+  credentials {
+    api_key: string
+  }
+  view main() -> Surface { Text { value: "hi" } }
+}
+"#,
+        ErrorCode::UNDECLARED_CREDENTIAL,
+    );
+}
+
+#[test]
+fn e604_has_suggestion() {
+    let errors = check(
+        r#"
+space App {
+  state { api_url: string = api_key }
+  credentials {
+    api_key: string
+  }
+  view main() -> Surface { Text { value: "hi" } }
+}
+"#,
+    );
+    let err = errors
+        .errors
+        .iter()
+        .find(|e| e.code == ErrorCode::UNDECLARED_CREDENTIAL)
+        .expect("expected E604");
+    assert!(
+        err.suggestion.is_some(),
+        "E604 should include a suggestion"
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
