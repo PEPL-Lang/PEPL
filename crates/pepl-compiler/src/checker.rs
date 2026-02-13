@@ -10,6 +10,7 @@
 //! - E300: invariant references derived field (unreachable)
 //! - E400: undeclared capability
 //! - E401: capability unavailable
+//! - E402: unknown component in view
 //! - E500: variable already declared
 //! - E501: `set` outside action / capability used in view
 //! - E502: recursion not allowed (action calls itself)
@@ -378,6 +379,15 @@ impl<'a> TypeChecker<'a> {
     fn check_ui_element(&mut self, element: &UIElement) {
         match element {
             UIElement::Component(comp) => {
+                // Validate component name against the 10 Phase 0 components
+                if !is_valid_component(&comp.name.name) {
+                    self.error(
+                        ErrorCode::UNKNOWN_COMPONENT,
+                        format!("unknown component '{}'", comp.name.name),
+                        comp.name.span,
+                    );
+                }
+
                 // Check prop expressions
                 for prop in &comp.props {
                     // Action references in on_tap/on_change etc. are just identifiers
@@ -1433,6 +1443,48 @@ impl<'a> TypeChecker<'a> {
                                 name.span,
                             );
                         }
+                    } else if let Type::Result(ok_ty, err_ty) = &subject_ty {
+                        // Result<T, E> has virtual variants Ok(T) and Err(E)
+                        match name.name.as_str() {
+                            "Ok" => {
+                                if bindings.len() == 1 {
+                                    self.env.define(&bindings[0].name, *ok_ty.clone());
+                                } else if !bindings.is_empty() {
+                                    self.error(
+                                        ErrorCode::WRONG_ARG_COUNT,
+                                        format!(
+                                            "variant 'Ok' has 1 parameter, but {} bindings provided",
+                                            bindings.len()
+                                        ),
+                                        arm.span,
+                                    );
+                                }
+                            }
+                            "Err" => {
+                                if bindings.len() == 1 {
+                                    self.env.define(&bindings[0].name, *err_ty.clone());
+                                } else if !bindings.is_empty() {
+                                    self.error(
+                                        ErrorCode::WRONG_ARG_COUNT,
+                                        format!(
+                                            "variant 'Err' has 1 parameter, but {} bindings provided",
+                                            bindings.len()
+                                        ),
+                                        arm.span,
+                                    );
+                                }
+                            }
+                            _ => {
+                                self.error(
+                                    ErrorCode::TYPE_MISMATCH,
+                                    format!(
+                                        "type {} has no variant '{}'",
+                                        subject_ty, name.name
+                                    ),
+                                    name.span,
+                                );
+                            }
+                        }
                     } else if let Type::Named(type_name) = &subject_ty {
                         // Resolve named type
                         if let Some(variants) = self.sum_types.get(type_name) {
@@ -1476,6 +1528,12 @@ impl<'a> TypeChecker<'a> {
                 Type::Named(name) => self.sum_types.get(name).map(|variants| {
                     variants.iter().map(|v| v.name.clone()).collect::<HashSet<_>>()
                 }),
+                Type::Result(_, _) => {
+                    let mut s = HashSet::new();
+                    s.insert("Ok".to_string());
+                    s.insert("Err".to_string());
+                    Some(s)
+                }
                 _ => None,
             };
 
@@ -1613,4 +1671,22 @@ fn op_symbol(op: BinOp) -> &'static str {
         BinOp::And => "and",
         BinOp::Or => "or",
     }
+}
+
+/// The 10 Phase 0 component names.
+const VALID_COMPONENTS: &[&str] = &[
+    "Button",
+    "Column",
+    "Modal",
+    "ProgressBar",
+    "Row",
+    "Scroll",
+    "ScrollList",
+    "Text",
+    "TextInput",
+    "Toast",
+];
+
+fn is_valid_component(name: &str) -> bool {
+    VALID_COMPONENTS.contains(&name)
 }

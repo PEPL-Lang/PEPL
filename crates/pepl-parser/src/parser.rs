@@ -286,6 +286,10 @@ impl<'src> Parser<'src> {
                 let span = self.advance().span;
                 Some(pepl_types::ast::Ident::new("match", span))
             }
+            TokenKind::Update => {
+                let span = self.advance().span;
+                Some(pepl_types::ast::Ident::new("update", span))
+            }
             _ => {
                 self.error_at_current(
                     ErrorCode::UNEXPECTED_TOKEN,

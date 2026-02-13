@@ -126,7 +126,7 @@
 - [x] Parse `PropAssign`: `name: expr [,]`
 - [x] Distinguish action references from function calls in prop position
 - [x] Parse `if`/`for` inside UI blocks as UIElements (not Statements)
-- [ ] Validate Phase 0 component names (Text, Button, TextInput, Column, Row, Scroll, ScrollList, ProgressBar, Modal, Toast) — unknown names produce E402
+- [x] Validate Phase 0 component names (Text, Button, TextInput, Column, Row, Scroll, ScrollList, ProgressBar, Modal, Toast) — unknown names produce E402
 
 ### 3.5 Parser Tests
 - [x] Test all canonical examples from `llm-generation-contract.md` (Counter, TodoList, UnitConverter, WeatherDashboard, PomodoroTimer, HabitTracker, QuizApp)
@@ -158,6 +158,7 @@
 - [x] Check record field types
 - [x] Validate `match` exhaustiveness (E210: non-exhaustive match)
 - [x] Validate pattern bindings in match arms
+- [x] Resolve `Result<T, E>` variant bindings in match arms (`Ok(n)` and `Err(e)`)
 - [x] Check `?` only on Result types
 - [x] Check `??` left side is nullable
 - [x] Implement nil narrowing: `if x != nil { ... }` narrows type from `T | nil` to `T`
@@ -192,11 +193,11 @@
 - [x] Test capability not declared (E400)
 - [x] Test variable already declared (E500)
 - [x] Test derived field modification (E601)
-- [ ] Test block comment rejection (E603)
+- [x] Test block comment rejection (E603)
 - [x] Test credential errors (E604, E605)
-- [ ] Test block ordering violation (E600)
-- [ ] Test invariant unreachable (E300) and unknown field reference (E301)
-- [ ] Test nil narrowing works correctly
+- [x] Test block ordering violation (E600)
+- [x] Test invariant unreachable (E300) and unknown field reference (E301)
+- [x] Test nil narrowing works correctly
 - [x] Test all canonical examples type-check successfully
 - [x] 100-iteration determinism test
 
