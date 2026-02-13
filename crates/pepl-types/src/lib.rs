@@ -4,6 +4,7 @@
 //! and other shared data structures used across all compiler stages.
 
 pub mod ast;
+pub mod ast_diff;
 mod error;
 mod span;
 

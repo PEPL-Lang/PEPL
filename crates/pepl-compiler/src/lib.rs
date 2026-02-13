@@ -95,6 +95,10 @@ pub struct CompileResult {
 
     /// Warnings from compilation (separate from errors).
     pub warnings: Vec<pepl_types::PeplError>,
+
+    /// Source map: WASM function index → PEPL source location.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_map: Option<pepl_codegen::SourceMap>,
 }
 
 // ── type_check ────────────────────────────────────────────────────────────────
@@ -204,6 +208,7 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
             language_version: PEPL_LANGUAGE_VERSION.to_string(),
             compiler_version: PEPL_COMPILER_VERSION.to_string(),
             warnings: Vec::new(),
+            source_map: None,
         };
     }
 
@@ -225,6 +230,7 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
             language_version: PEPL_LANGUAGE_VERSION.to_string(),
             compiler_version: PEPL_COMPILER_VERSION.to_string(),
             warnings: Vec::new(),
+            source_map: None,
         };
     }
 
@@ -246,6 +252,7 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
                 language_version: PEPL_LANGUAGE_VERSION.to_string(),
                 compiler_version: PEPL_COMPILER_VERSION.to_string(),
                 warnings: Vec::new(),
+                source_map: None,
             };
         }
     };
@@ -278,12 +285,13 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
             language_version: PEPL_LANGUAGE_VERSION.to_string(),
             compiler_version: PEPL_COMPILER_VERSION.to_string(),
             warnings,
+            source_map: None,
         };
     }
 
     // 4. Codegen → .wasm
-    match pepl_codegen::compile(&program) {
-        Ok(wasm) => {
+    match pepl_codegen::compile_with_source_map(&program) {
+        Ok((wasm, source_map)) => {
             let wasm_hash = sha256_hex(&wasm);
             CompileResult {
                 success: true,
@@ -300,6 +308,7 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
                 language_version: PEPL_LANGUAGE_VERSION.to_string(),
                 compiler_version: PEPL_COMPILER_VERSION.to_string(),
                 warnings,
+                source_map: Some(source_map),
             }
         }
         Err(e) => {
@@ -320,6 +329,7 @@ pub fn compile_to_result(source: &str, name: &str) -> CompileResult {
                 language_version: PEPL_LANGUAGE_VERSION.to_string(),
                 compiler_version: PEPL_COMPILER_VERSION.to_string(),
                 warnings,
+                source_map: None,
             }
         }
     }

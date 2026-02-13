@@ -14,3 +14,9 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+
+[dev-dependencies]
+pepl-eval = { path = "../pepl-eval" }
+pepl-lexer = { path = "../pepl-lexer" }
+pepl-stdlib = { path = "../../../pepl-stdlib" }
+wasmi = "0.42"

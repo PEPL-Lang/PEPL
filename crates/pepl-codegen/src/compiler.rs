@@ -23,6 +23,7 @@ use crate::runtime::{
     self, memarg, rt_func_idx, DataSegmentTracker, RT_FUNC_COUNT, RT_VAL_LIST_GET,
     RT_VAL_RECORD_GET,
 };
+use crate::source_map::{FuncKind, SourceMap};
 use crate::types::*;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -34,6 +35,14 @@ use crate::types::*;
 /// Returns the raw bytes of a valid WebAssembly module on success, or a
 /// [`CodegenError`] describing what went wrong.
 pub fn compile(program: &Program) -> CodegenResult<Vec<u8>> {
+    let mut compiler = Compiler::new(program);
+    let (wasm, _source_map) = compiler.compile()?;
+    Ok(wasm)
+}
+
+/// Compile a validated PEPL [`Program`] and return both the WASM binary
+/// and a [`SourceMap`] mapping WASM function indices to PEPL source spans.
+pub fn compile_with_source_map(program: &Program) -> CodegenResult<(Vec<u8>, SourceMap)> {
     let mut compiler = Compiler::new(program);
     compiler.compile()
 }
@@ -66,6 +75,10 @@ struct Compiler<'a> {
     lambda_bodies: Vec<LambdaBody>,
     /// Number of space-level functions (init, dispatch, render, state, etc.)
     num_space_funcs: u32,
+    /// Number of test functions emitted (__test_0, __test_1, … + __test_count).
+    num_test_funcs: u32,
+    /// Source map built during codegen.
+    source_map: SourceMap,
 }
 
 /// A lambda body collected during expression codegen for deferred compilation.
@@ -89,11 +102,13 @@ impl<'a> Compiler<'a> {
             function_table: HashMap::new(),
             lambda_bodies: Vec::new(),
             num_space_funcs: 0,
+            num_test_funcs: 0,
+            source_map: SourceMap::new(),
         }
     }
 
     /// Run the full compilation pipeline.
-    fn compile(&mut self) -> CodegenResult<Vec<u8>> {
+    fn compile(&mut self) -> CodegenResult<(Vec<u8>, SourceMap)> {
         self.collect_metadata();
 
         let mut module = Module::new();
@@ -141,6 +156,14 @@ impl<'a> Compiler<'a> {
         let custom = self.emit_custom();
         module.section(&custom);
 
+        // 9b. Custom section (source map)
+        let sm_bytes = self.source_map.to_json();
+        let sm_custom = CustomSection {
+            name: std::borrow::Cow::Borrowed("pepl_source_map"),
+            data: std::borrow::Cow::Owned(sm_bytes),
+        };
+        module.section(&sm_custom);
+
         let wasm_bytes = module.finish();
 
         // 10. Validate
@@ -148,7 +171,7 @@ impl<'a> Compiler<'a> {
             CodegenError::ValidationFailed(format!("{e}"))
         })?;
 
-        Ok(wasm_bytes)
+        Ok((wasm_bytes, self.source_map.clone()))
     }
 
     // ── Metadata collection ──────────────────────────────────────────────
@@ -454,6 +477,7 @@ impl<'a> Compiler<'a> {
         )?;
         self.merge_user_data(&init_ctx);
         code_section.function(&Self::finalize_function(init_scratch, &init_ctx));
+        self.source_map.push(init_idx, "init", FuncKind::SpaceInfra, body.state.span);
 
         // dispatch_action(action_id: i32, payload_ptr: i32, payload_len: i32) -> void
         let dispatch_idx = init_idx + 1;
@@ -469,6 +493,12 @@ impl<'a> Compiler<'a> {
         )?;
         self.merge_user_data(&dispatch_ctx);
         code_section.function(&Self::finalize_function(dispatch_scratch, &dispatch_ctx));
+        self.source_map.push(dispatch_idx, "dispatch_action", FuncKind::SpaceInfra, body.span);
+        // Also map individual actions by name
+        for (ai, action) in body.actions.iter().enumerate() {
+            self.source_map.push(dispatch_idx, &action.name.name, FuncKind::Action, action.span);
+            let _ = ai; // action_id = ai, embedded in dispatch
+        }
 
         // render(view_id: i32) -> i32
         let render_idx = dispatch_idx + 1;
@@ -478,6 +508,10 @@ impl<'a> Compiler<'a> {
         crate::space::emit_render(&body.views, &mut render_ctx, &mut render_scratch)?;
         self.merge_user_data(&render_ctx);
         code_section.function(&Self::finalize_function(render_scratch, &render_ctx));
+        self.source_map.push(render_idx, "render", FuncKind::SpaceInfra, body.span);
+        for view in &body.views {
+            self.source_map.push(render_idx, &view.name.name, FuncKind::View, view.span);
+        }
 
         // get_state() -> i32
         let get_state_idx = render_idx + 1;
@@ -515,6 +549,7 @@ impl<'a> Compiler<'a> {
             )?;
             self.merge_user_data(&update_ctx);
             code_section.function(&Self::finalize_function(update_scratch, &update_ctx));
+            self.source_map.push(next_idx, "update", FuncKind::Update, update_decl.span);
             next_idx += 1;
         }
 
@@ -533,6 +568,7 @@ impl<'a> Compiler<'a> {
             )?;
             self.merge_user_data(&he_ctx);
             code_section.function(&Self::finalize_function(he_scratch, &he_ctx));
+            self.source_map.push(next_idx, "handle_event", FuncKind::HandleEvent, handle_event_decl.span);
             next_idx += 1;
         }
 
@@ -566,6 +602,7 @@ impl<'a> Compiler<'a> {
         code_section.function(&invoke_func);
         self.function_table
             .insert("invoke_lambda".to_string(), invoke_lambda_idx);
+        self.source_map.push(invoke_lambda_idx, "invoke_lambda", FuncKind::InvokeLambda, self.program.space.body.span);
         let mut _next_idx = next_idx + 1;
 
         // Now compile deferred lambda bodies
@@ -617,6 +654,56 @@ impl<'a> Compiler<'a> {
             _next_idx += 1;
         }
 
+        // ── Test functions ───────────────────────────────────────────────
+        // Flatten all test cases across all tests { } blocks.
+        let all_cases: Vec<&TestCase> = self
+            .program
+            .tests
+            .iter()
+            .flat_map(|tb| &tb.cases)
+            .collect();
+
+        if !all_cases.is_empty() {
+            // Build action name → action_id map
+            let actions_map: std::collections::HashMap<String, u32> = self
+                .action_names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| (name.clone(), i as u32))
+                .collect();
+
+            let init_func_idx = IMPORT_COUNT + RT_FUNC_COUNT; // init is the first space func
+            let dispatch_func_idx = init_func_idx + 1;
+
+            for (ti, tc) in all_cases.iter().enumerate() {
+                let test_func_idx = _next_idx;
+                func_section.function(TYPE_VOID_VOID);
+                let mut test_scratch = Function::new(vec![]);
+                let mut test_ctx = self.make_func_context(0);
+                crate::test_codegen::emit_test_body(
+                    &tc.body,
+                    &actions_map,
+                    dispatch_func_idx,
+                    init_func_idx,
+                    &mut test_ctx,
+                    &mut test_scratch,
+                )?;
+                test_scratch.instruction(&Instruction::End);
+                self.merge_user_data(&test_ctx);
+                code_section.function(&Self::finalize_function(test_scratch, &test_ctx));
+                self.source_map.push(test_func_idx, format!("__test_{ti}"), FuncKind::Test, tc.span);
+                _next_idx += 1;
+            }
+
+            // __test_count() -> i32
+            func_section.function(TYPE_VOID_I32);
+            code_section.function(&crate::test_codegen::emit_test_count(all_cases.len()));
+            self.source_map.push(_next_idx, "__test_count", FuncKind::TestCount, self.program.space.span);
+            _next_idx += 1;
+
+            self.num_test_funcs = all_cases.len() as u32 + 1; // +1 for __test_count
+        }
+
         Ok((func_section, code_section))
     }
 
@@ -661,6 +748,28 @@ impl<'a> Compiler<'a> {
         // Export the function table for call_indirect
         if !self.lambda_bodies.is_empty() {
             exports.export("__indirect_function_table", ExportKind::Table, 0);
+        }
+
+        // Test function exports: __test_0, __test_1, … and __test_count
+        if self.num_test_funcs > 0 {
+            let test_base = IMPORT_COUNT
+                + RT_FUNC_COUNT
+                + self.num_space_funcs
+                + 1 // invoke_lambda
+                + self.lambda_bodies.len() as u32;
+            let num_cases = self.num_test_funcs - 1; // last one is __test_count
+            for i in 0..num_cases {
+                exports.export(
+                    &format!("__test_{i}"),
+                    ExportKind::Func,
+                    test_base + i,
+                );
+            }
+            exports.export(
+                "__test_count",
+                ExportKind::Func,
+                test_base + num_cases,
+            );
         }
 
         exports

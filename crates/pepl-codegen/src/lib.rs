@@ -30,9 +30,12 @@ pub mod error;
 pub mod expr;
 pub mod gas;
 pub mod runtime;
+pub mod source_map;
 pub mod space;
 pub mod stmt;
+pub mod test_codegen;
 pub mod types;
 
-pub use compiler::compile;
+pub use compiler::{compile, compile_with_source_map};
 pub use error::{CodegenError, CodegenResult};
+pub use source_map::SourceMap;
