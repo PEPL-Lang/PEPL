@@ -12,6 +12,7 @@
 
 pub mod checker;
 pub mod env;
+pub mod reference;
 pub mod stdlib;
 pub mod ty;
 

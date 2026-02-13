@@ -53,6 +53,16 @@ impl StdlibRegistry {
         self.constants.get(module)?.get(name)
     }
 
+    /// Iterate over all registered modules and their functions.
+    pub fn modules(&self) -> &HashMap<String, HashMap<String, FnSig>> {
+        &self.modules
+    }
+
+    /// Iterate over all registered constants.
+    pub fn all_constants(&self) -> &HashMap<String, HashMap<String, Type>> {
+        &self.constants
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // Registration helpers
     // ──────────────────────────────────────────────────────────────────────

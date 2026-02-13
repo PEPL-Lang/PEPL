@@ -591,18 +591,18 @@
 > Export it from `pepl-wasm` so any host can inject it into LLM prompts.
 
 ### 12.1 Reference Generation
-- [ ] Machine-generate compressed PEPL reference (~2K tokens) from `StdlibRegistry` — all types, keywords, stdlib functions
-- [ ] Machine-generate Phase 0 stdlib table from `StdlibRegistry` — function signatures, descriptions
-- [ ] Output matches the format specified in `llm-generation-contract.md`
-- [ ] Reference auto-updates when stdlib changes (generated, not hand-written)
+- [x] Machine-generate compressed PEPL reference (~2K tokens) from `StdlibRegistry` — all types, keywords, stdlib functions
+- [x] Machine-generate Phase 0 stdlib table from `StdlibRegistry` — function signatures, descriptions
+- [x] Output matches the format specified in `llm-generation-contract.md`
+- [x] Reference auto-updates when stdlib changes (generated, not hand-written)
 
 ### 12.2 WASM Exports
-- [ ] Export `get_reference() -> String` from `pepl-wasm` crate
-- [ ] Export `get_stdlib_table() -> String` from `pepl-wasm` crate
-- [ ] Unit tests: reference contains all 88 functions, stdlib table is valid JSON
+- [x] Export `get_reference() -> String` from `pepl-wasm` crate
+- [x] Export `get_stdlib_table() -> String` from `pepl-wasm` crate
+- [x] Unit tests: reference contains all 88 functions, stdlib table is valid JSON
 
 ### 12.3 Phase 12 Validation
-- [ ] Generated reference is ≤ 2K tokens (measured with tiktoken or equivalent)
-- [ ] Generated stdlib table matches `phase-0-stdlib-reference.md` content
-- [ ] `cargo test --workspace` — all tests pass
-- [ ] `cargo clippy -- -D warnings` clean
+- [x] Generated reference is ≤ 2K tokens (measured with tiktoken or equivalent)
+- [x] Generated stdlib table matches `phase-0-stdlib-reference.md` content
+- [x] `cargo test --workspace` — all tests pass (577 tests)
+- [x] `cargo clippy -- -D warnings` clean

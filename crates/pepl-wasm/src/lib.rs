@@ -62,3 +62,26 @@ pub fn type_check(source: &str, filename: &str) -> String {
 pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
+
+/// Return the compressed PEPL reference (~2K tokens) for LLM context injection.
+///
+/// This reference is machine-generated from the compiler's stdlib registry.
+/// It contains the complete language syntax, type system, stdlib function
+/// listing, UI components, and rules — everything an LLM needs to generate
+/// valid PEPL code.
+#[wasm_bindgen]
+pub fn get_reference() -> String {
+    pepl_compiler::reference::generate_reference()
+}
+
+/// Return a structured JSON stdlib table for tooling and documentation.
+///
+/// Contains every registered stdlib function with its signature, parameter
+/// types, return type, variadic flag, and human-readable description.
+/// Also includes constants (e.g. `math.PI`, `math.E`).
+///
+/// The table auto-updates when the stdlib registry changes.
+#[wasm_bindgen]
+pub fn get_stdlib_table() -> String {
+    pepl_compiler::reference::generate_stdlib_table()
+}
