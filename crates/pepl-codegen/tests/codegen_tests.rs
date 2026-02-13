@@ -246,7 +246,10 @@ fn deterministic_output_100_iterations() {
     let reference = compile_source(COUNTER_SPACE);
     for i in 0..100 {
         let wasm = compile_source(COUNTER_SPACE);
-        assert_eq!(wasm, reference, "iteration {i} produced different bytes");
+        assert_eq!(
+            wasm, reference,
+            "iteration {i} produced different bytes"
+        );
     }
 }
 
@@ -1220,4 +1223,187 @@ fn compile_returns_codegen_result() {
 fn compile_counter_returns_ok() {
     let result = try_compile(COUNTER_SPACE);
     assert!(result.is_ok());
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// M5 Parity: Lambda / Record Spread / Result Unwrap
+// ══════════════════════════════════════════════════════════════════════════════
+// These tests verify the Phase 9 codegen fixes produce valid WASM for
+// features that previously emitted placeholder/incorrect code (F2, F3, F4).
+
+#[test]
+fn lambda_in_derived_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    items: list<number> = [1, 2, 3]
+  }
+  derived {
+    positive: number = list.length(list.filter(items, fn(x: number) { x > 0 }))
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn lambda_with_capture_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    items: list<number> = [1, 2, 3]
+    threshold: number = 5
+  }
+  derived {
+    above: number = list.length(list.filter(items, fn(x: number) { x > threshold }))
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn lambda_multi_param_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    nums: list<number> = [3, 1, 2]
+  }
+  derived {
+    total: number = list.reduce(nums, 0, fn(acc: number, x: number) { acc + x })
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn record_spread_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    item: { name: string, done: bool, count: number } = { name: "a", done: false, count: 0 }
+  }
+  action toggle() {
+    set item = { ...item, done: not item.done }
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn record_spread_with_multiple_overrides_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    item: { a: number, b: number, c: number } = { a: 1, b: 2, c: 3 }
+  }
+  action change() {
+    set item = { ...item, a: 10, c: 30 }
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn result_unwrap_compiles() {
+    let wasm = compile_source(
+        r#"
+space T {
+  state { value: number = 0 }
+  action do_parse(s: string) {
+    let n = convert.parse_float(s)?
+    set value = n
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn combined_lambda_spread_compiles() {
+    // Exercises lambda + spread together (like TodoList canonical)
+    let wasm = compile_source(
+        r#"
+space T {
+  state {
+    todos: list<{ text: string, done: bool }> = []
+    input: string = ""
+  }
+  derived {
+    remaining: number = list.length(list.filter(todos, fn(t: { text: string, done: bool }) { not t.done }))
+  }
+  action add() {
+    set todos = list.append(todos, { text: input, done: false })
+    set input = ""
+  }
+  action toggle(i: number) {
+    let todo = list.get(todos, i)
+    if todo != nil {
+      set todos = list.set(todos, i, { ...todo, done: not todo.done })
+    }
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#,
+    );
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn lambda_spread_unwrap_deterministic() {
+    // 100-iteration determinism for lambda/spread/unwrap features
+    let source = r#"
+space T {
+  state {
+    items: list<{ name: string, val: number }> = []
+    parsed: number = 0
+  }
+  derived {
+    total: number = list.reduce(items, 0, fn(acc: number, x: { name: string, val: number }) { acc + x.val })
+  }
+  action add(name: string) {
+    set items = list.append(items, { name: name, val: 1 })
+  }
+  action modify(i: number) {
+    let item = list.get(items, i)
+    if item != nil {
+      set items = list.set(items, i, { ...item, val: item.val + 1 })
+    }
+  }
+  action do_parse(s: string) {
+    let n = convert.parse_float(s)?
+    set parsed = n
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#;
+    let reference = compile_source(source);
+    for i in 0..100 {
+        let wasm = compile_source(source);
+        assert_eq!(
+            wasm, reference,
+            "lambda/spread/unwrap WASM bytes differ at iteration {}",
+            i
+        );
+    }
 }
