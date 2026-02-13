@@ -2,7 +2,7 @@
 
 The PEPL compiler — parses PEPL source, type-checks, validates invariants, evaluates via a tree-walking interpreter, and emits WASM bytecode.
 
-**Status:** Phase 0 — under construction. See [ROADMAP.md](ROADMAP.md) for progress.
+**Status:** Phase 4 complete (Type Checker). See [ROADMAP.md](ROADMAP.md) for progress.
 
 ## Architecture
 
@@ -14,12 +14,20 @@ PEPL Source → Lexer → Parser → Type Checker → Invariant Checker → Eval
 
 | Crate | Purpose | Status |
 |-------|---------|--------|
-| `pepl-types` | Shared types: Span, error infrastructure, error codes | ✅ Phase 1 done |
-| `pepl-lexer` | Source → token stream | 🚧 Phase 2 in progress |
-| `pepl-parser` | Token stream → AST | Planned |
-| `pepl-eval` | Tree-walking evaluator (reference implementation) | Planned |
-| `pepl-codegen` | Verified AST → `.wasm` binary (via `wasm-encoder`) | Planned |
-| `pepl-compiler` | Pipeline orchestration | Planned |
+| `pepl-types` | Shared types: AST, Span, error infrastructure, error codes | ✅ Phase 1 done |
+| `pepl-lexer` | Source → token stream (89 token kinds, string interpolation) | ✅ Phase 2 done |
+| `pepl-parser` | Token stream → AST (recursive descent, precedence climbing) | ✅ Phase 3 done |
+| `pepl-compiler` | Type checker (17-variant Type enum, 88 stdlib sigs, scoped env) | ✅ Phase 4 done |
+| `pepl-eval` | Tree-walking evaluator (reference implementation) | Planned (Phase 6) |
+| `pepl-codegen` | Verified AST → `.wasm` binary (via `wasm-encoder`) | Planned (Phase 7) |
+
+## Tests
+
+290 tests across the workspace:
+- `pepl-types`: 19 (error infrastructure, spans)
+- `pepl-lexer`: 80 (64 lexer + 16 token)
+- `pepl-parser`: 121 (64 parser + 57 edge cases)
+- `pepl-compiler`: 70 (type checker integration tests)
 
 ## Build
 
