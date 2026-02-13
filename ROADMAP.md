@@ -142,62 +142,62 @@
 ## Phase 4: Type Checker
 
 ### 4.1 Type Environment
-- [ ] Build type environment from state fields, action params, let bindings
-- [ ] Register built-in types: number, string, bool, nil, color, Surface, InputEvent
-- [ ] Register built-in parameterized types: list<T>, Result<T, E>
-- [ ] Register stdlib function signatures (all 88 Phase 0 functions)
-- [ ] Register user-defined sum types from `type` declarations
-- [ ] Track scope (space-level, action-level, block-level, lambda-level)
+- [x] Build type environment from state fields, action params, let bindings
+- [x] Register built-in types: number, string, bool, nil, color, Surface, InputEvent
+- [x] Register built-in parameterized types: list<T>, Result<T, E>
+- [x] Register stdlib function signatures (all 88 Phase 0 functions)
+- [x] Register user-defined sum types from `type` declarations
+- [x] Track scope (space-level, action-level, block-level, lambda-level)
 
 ### 4.2 Expression Type Checking
-- [ ] Infer and check types of all expression forms
-- [ ] Validate operator type constraints (`+` is numbers-only, `not`/`and`/`or` are bool-only)
-- [ ] Check function call argument types and counts (E202)
-- [ ] Validate qualified calls (module.function): check module exists, function exists, arg types match
-- [ ] Check list element type consistency
-- [ ] Check record field types
-- [ ] Validate `match` exhaustiveness (E210: non-exhaustive match)
-- [ ] Validate pattern bindings in match arms
-- [ ] Check `?` only on Result types
-- [ ] Check `??` left side is nullable
-- [ ] Implement nil narrowing: `if x != nil { ... }` narrows type from `T | nil` to `T`
-- [ ] Reject `any` in user-authored type annotations (E200)
+- [x] Infer and check types of all expression forms
+- [x] Validate operator type constraints (`+` is numbers-only, `not`/`and`/`or` are bool-only)
+- [x] Check function call argument types and counts (E202)
+- [x] Validate qualified calls (module.function): check module exists, function exists, arg types match
+- [x] Check list element type consistency
+- [x] Check record field types
+- [x] Validate `match` exhaustiveness (E210: non-exhaustive match)
+- [x] Validate pattern bindings in match arms
+- [x] Check `?` only on Result types
+- [x] Check `??` left side is nullable
+- [x] Implement nil narrowing: `if x != nil { ... }` narrows type from `T | nil` to `T`
+- [x] Reject `any` in user-authored type annotations (E200)
 
 ### 4.3 Statement Type Checking
-- [ ] Validate `set` targets declared state fields only (E101)
-- [ ] Validate `set` appears only inside actions (E501)
-- [ ] Validate `set` does not target derived fields (E601)
-- [ ] Check `let` binding type annotation matches expression type
-- [ ] Validate `return` appears only inside actions
-- [ ] Validate `assert` expression is bool
-- [ ] Validate `for` iterates over `list<T>` only
-- [ ] Check no variable shadowing (E500)
+- [x] Validate `set` targets declared state fields only (E101)
+- [x] Validate `set` appears only inside actions (E501)
+- [x] Validate `set` does not target derived fields (E601)
+- [x] Check `let` binding type annotation matches expression type
+- [x] Validate `return` appears only inside actions
+- [x] Validate `assert` expression is bool
+- [x] Validate `for` iterates over `list<T>` only
+- [x] Check no variable shadowing (E500)
 
 ### 4.4 Declaration-Level Checks
-- [ ] Validate state field initializers: pure stdlib only, no capability calls, no cross-field references
-- [ ] Validate derived field expressions: may reference state + prior derived fields, no later derived or circular refs
-- [ ] Validate invariant expressions are boolean, do not reference derived fields
-- [ ] Validate views are pure: no `set`, no capability calls (E501)
-- [ ] Validate capability usage matches declarations (E400, E401)
-- [ ] Validate credential references exist in credentials block (E604)
-- [ ] Validate credentials are read-only (E605)
-- [ ] Check action references in UI props resolve to declared actions
+- [x] Validate state field initializers: pure stdlib only, no capability calls, no cross-field references
+- [x] Validate derived field expressions: may reference state + prior derived fields, no later derived or circular refs
+- [x] Validate invariant expressions are boolean, do not reference derived fields
+- [x] Validate views are pure: no `set`, no capability calls (E501)
+- [x] Validate capability usage matches declarations (E400, E401)
+- [x] Validate credential references exist in credentials block (E604)
+- [x] Validate credentials are read-only (E605)
+- [x] Check action references in UI props resolve to declared actions
 
 ### 4.5 Type Checker Tests
-- [ ] Test type mismatch errors (E201)
-- [ ] Test unknown type errors (E200)
-- [ ] Test wrong argument count (E202)
-- [ ] Test non-exhaustive match (E210)
-- [ ] Test `set` outside action (E501)
-- [ ] Test capability not declared (E400)
-- [ ] Test variable already declared (E500)
-- [ ] Test derived field modification (E601)
+- [x] Test type mismatch errors (E201)
+- [x] Test unknown type errors (E200)
+- [x] Test wrong argument count (E202)
+- [x] Test non-exhaustive match (E210)
+- [x] Test `set` outside action (E501)
+- [x] Test capability not declared (E400)
+- [x] Test variable already declared (E500)
+- [x] Test derived field modification (E601)
 - [ ] Test block comment rejection (E603)
-- [ ] Test credential errors (E604, E605)
+- [x] Test credential errors (E604, E605)
 - [ ] Test block ordering violation (E600)
 - [ ] Test invariant unreachable (E300) and unknown field reference (E301)
 - [ ] Test nil narrowing works correctly
-- [ ] Test all canonical examples type-check successfully
+- [x] Test all canonical examples type-check successfully
 - [ ] 100-iteration determinism test
 
 ---
