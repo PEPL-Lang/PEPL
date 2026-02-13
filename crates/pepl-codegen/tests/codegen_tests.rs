@@ -246,10 +246,7 @@ fn deterministic_output_100_iterations() {
     let reference = compile_source(COUNTER_SPACE);
     for i in 0..100 {
         let wasm = compile_source(COUNTER_SPACE);
-        assert_eq!(
-            wasm, reference,
-            "iteration {i} produced different bytes"
-        );
+        assert_eq!(wasm, reference, "iteration {i} produced different bytes");
     }
 }
 

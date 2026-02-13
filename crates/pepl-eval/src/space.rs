@@ -73,11 +73,7 @@ impl SpaceInstance {
         let mut eval = Evaluator::new(gas_limit);
 
         // Register action names for reference resolution
-        eval.action_names = body
-            .actions
-            .iter()
-            .map(|a| a.name.name.clone())
-            .collect();
+        eval.action_names = body.actions.iter().map(|a| a.name.name.clone()).collect();
 
         // Initialize state fields with default values
         let mut state_fields = Vec::new();
@@ -298,11 +294,7 @@ impl SpaceInstance {
         Ok(nodes)
     }
 
-    fn eval_ui_element(
-        &mut self,
-        elem: &UIElement,
-        out: &mut Vec<SurfaceNode>,
-    ) -> EvalResult<()> {
+    fn eval_ui_element(&mut self, elem: &UIElement, out: &mut Vec<SurfaceNode>) -> EvalResult<()> {
         match elem {
             UIElement::Component(comp) => {
                 let node = self.eval_component(comp)?;
@@ -334,10 +326,8 @@ impl SpaceInstance {
                     ExprKind::Identifier(action_name) => {
                         // Direct action reference: on_tap: increment
                         let mut action_props = BTreeMap::new();
-                        action_props.insert(
-                            "__action".to_string(),
-                            Value::String(action_name.clone()),
-                        );
+                        action_props
+                            .insert("__action".to_string(), Value::String(action_name.clone()));
                         props.insert(
                             name.clone(),
                             Value::Record {
@@ -353,10 +343,8 @@ impl SpaceInstance {
                     } => {
                         // Action call with args: on_tap: toggle(index)
                         let mut action_props = BTreeMap::new();
-                        action_props.insert(
-                            "__action".to_string(),
-                            Value::String(fn_name.name.clone()),
-                        );
+                        action_props
+                            .insert("__action".to_string(), Value::String(fn_name.name.clone()));
                         let mut arg_vals = Vec::new();
                         for arg in args {
                             arg_vals.push(self.eval.eval_expr(arg)?);
@@ -408,11 +396,7 @@ impl SpaceInstance {
         })
     }
 
-    fn eval_ui_if(
-        &mut self,
-        ui_if: &UIIf,
-        out: &mut Vec<SurfaceNode>,
-    ) -> EvalResult<()> {
+    fn eval_ui_if(&mut self, ui_if: &UIIf, out: &mut Vec<SurfaceNode>) -> EvalResult<()> {
         let cond = self.eval.eval_expr(&ui_if.condition)?;
         if cond.is_truthy() {
             let nodes = self.eval_ui_block(&ui_if.then_block)?;
@@ -429,11 +413,7 @@ impl SpaceInstance {
         Ok(())
     }
 
-    fn eval_ui_for(
-        &mut self,
-        ui_for: &UIFor,
-        out: &mut Vec<SurfaceNode>,
-    ) -> EvalResult<()> {
+    fn eval_ui_for(&mut self, ui_for: &UIFor, out: &mut Vec<SurfaceNode>) -> EvalResult<()> {
         let iterable = self.eval.eval_expr(&ui_for.iterable)?;
         let items = match iterable {
             Value::List(items) => items,
@@ -551,16 +531,12 @@ impl SpaceInstance {
         let handler = self
             .handle_event_decl
             .clone()
-            .ok_or_else(|| {
-                EvalError::Runtime("space has no handleEvent() declaration".into())
-            })?;
+            .ok_or_else(|| EvalError::Runtime("space has no handleEvent() declaration".into()))?;
 
         let snapshot = self.eval.env.global_bindings().clone();
 
         self.eval.env.push_scope();
-        self.eval
-            .env
-            .define(&handler.param.name.name, event);
+        self.eval.env.define(&handler.param.name.name, event);
 
         let exec_result = self.eval.eval_block(&handler.body);
         self.eval.env.pop_scope();
@@ -629,7 +605,11 @@ impl SpaceInstance {
     pub fn value_to_json_public(val: &Value) -> serde_json::Value {
         match val {
             Value::Number(n) => {
-                if n.fract() == 0.0 && n.is_finite() && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
+                if n.fract() == 0.0
+                    && n.is_finite()
+                    && *n >= i64::MIN as f64
+                    && *n <= i64::MAX as f64
+                {
                     serde_json::Value::Number(serde_json::Number::from(*n as i64))
                 } else {
                     serde_json::json!(*n)
@@ -652,7 +632,9 @@ impl SpaceInstance {
                 ResultValue::Ok(v) => serde_json::json!({"Ok": Self::value_to_json(v)}),
                 ResultValue::Err(v) => serde_json::json!({"Err": Self::value_to_json(v)}),
             },
-            Value::SumVariant { variant, fields, .. } => {
+            Value::SumVariant {
+                variant, fields, ..
+            } => {
                 if fields.is_empty() {
                     serde_json::Value::String(variant.clone())
                 } else {

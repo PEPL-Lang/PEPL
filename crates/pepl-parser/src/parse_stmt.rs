@@ -1,8 +1,8 @@
 //! Statement parsing.
 
+use crate::parser::Parser;
 use pepl_lexer::token::TokenKind;
 use pepl_types::ast::*;
-use crate::parser::Parser;
 
 impl<'src> Parser<'src> {
     /// Parse a block of statements: `{ stmts... }`

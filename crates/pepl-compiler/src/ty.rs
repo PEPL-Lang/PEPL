@@ -142,9 +142,7 @@ impl Type {
             return true;
         }
         // Nil is assignable to Nullable(T)
-        if matches!(self, Type::Nil)
-            && matches!(target, Type::Nullable(_))
-        {
+        if matches!(self, Type::Nil) && matches!(target, Type::Nullable(_)) {
             return true;
         }
         // T is assignable to Nullable(T)
@@ -227,7 +225,10 @@ impl Type {
 
     /// Returns true if this type could be nil.
     pub fn is_nullable(&self) -> bool {
-        matches!(self, Type::Nil | Type::Nullable(_) | Type::Any | Type::Unknown)
+        matches!(
+            self,
+            Type::Nil | Type::Nullable(_) | Type::Any | Type::Unknown
+        )
     }
 
     /// Returns true if this type is a Result.

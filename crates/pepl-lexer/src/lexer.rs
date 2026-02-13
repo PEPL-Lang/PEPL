@@ -165,14 +165,16 @@ impl<'src> Lexer<'src> {
     }
 
     fn span_from(&self, start_line: u32, start_col: u32) -> Span {
-        Span::new(start_line, start_col, self.line, self.col.saturating_sub(1).max(1))
+        Span::new(
+            start_line,
+            start_col,
+            self.line,
+            self.col.saturating_sub(1).max(1),
+        )
     }
 
     fn source_line_at(&self, line: u32) -> String {
-        self.source_file
-            .line(line)
-            .unwrap_or("")
-            .to_string()
+        self.source_file.line(line).unwrap_or("").to_string()
     }
 
     fn emit_error(&mut self, code: ErrorCode, message: impl Into<String>, span: Span) {
@@ -279,9 +281,11 @@ impl<'src> Lexer<'src> {
         // Check for EOF
         if self.at_end() {
             // If we're still inside a string or interpolation, that's an error
-            if self.mode_stack.iter().any(|m| {
-                matches!(m, Mode::String | Mode::Interpolation { .. })
-            }) {
+            if self
+                .mode_stack
+                .iter()
+                .any(|m| matches!(m, Mode::String | Mode::Interpolation { .. }))
+            {
                 self.emit_error(
                     ErrorCode::UNEXPECTED_TOKEN,
                     "Unterminated string literal",
@@ -334,7 +338,10 @@ impl<'src> Lexer<'src> {
             // ── Underscore (wildcard / discard) ──
             b'_' => {
                 // If followed by a letter/digit, it's part of an identifier
-                if matches!(self.peek(), Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_')) {
+                if matches!(
+                    self.peek(),
+                    Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_')
+                ) {
                     self.scan_identifier(start_line, start_col)
                 } else {
                     Token::new(TokenKind::Underscore, self.span_from(start_line, start_col))
@@ -406,7 +413,10 @@ impl<'src> Lexer<'src> {
             b'?' => {
                 if self.peek() == Some(b'?') {
                     self.advance();
-                    Token::new(TokenKind::QuestionQuestion, self.span_from(start_line, start_col))
+                    Token::new(
+                        TokenKind::QuestionQuestion,
+                        self.span_from(start_line, start_col),
+                    )
                 } else {
                     Token::new(TokenKind::Question, self.span_from(start_line, start_col))
                 }
@@ -452,7 +462,8 @@ impl<'src> Lexer<'src> {
                         );
                     } else {
                         // Decrease brace depth — this is just a nested `{}`
-                        if let Some(Mode::Interpolation { brace_depth }) = self.mode_stack.last_mut()
+                        if let Some(Mode::Interpolation { brace_depth }) =
+                            self.mode_stack.last_mut()
                         {
                             *brace_depth -= 1;
                         }
@@ -518,7 +529,8 @@ impl<'src> Lexer<'src> {
         let text = &self.source[self.byte_offset_for(start_line, start_col)..self.pos];
         let text = std::str::from_utf8(text).unwrap_or("");
 
-        let kind = TokenKind::from_keyword(text).unwrap_or_else(|| TokenKind::Identifier(text.to_string()));
+        let kind = TokenKind::from_keyword(text)
+            .unwrap_or_else(|| TokenKind::Identifier(text.to_string()));
 
         Token::new(kind, span)
     }
@@ -569,7 +581,8 @@ impl<'src> Lexer<'src> {
                     let interp_span = self.span_from(self.line, self.col.saturating_sub(2));
                     self.push_mode(Mode::Interpolation { brace_depth: 0 });
                     // Queue InterpolationStart so it appears after StringStart
-                    self.pending.push(Token::new(TokenKind::InterpolationStart, interp_span));
+                    self.pending
+                        .push(Token::new(TokenKind::InterpolationStart, interp_span));
                     return Token::new(
                         TokenKind::StringStart(buf),
                         self.span_from(start_line, start_col),
@@ -627,7 +640,8 @@ impl<'src> Lexer<'src> {
                     self.pop_mode();
                     self.push_mode(Mode::Interpolation { brace_depth: 0 });
                     // Queue InterpolationStart so it appears after StringPart
-                    self.pending.push(Token::new(TokenKind::InterpolationStart, interp_span));
+                    self.pending
+                        .push(Token::new(TokenKind::InterpolationStart, interp_span));
                     return Token::new(
                         TokenKind::StringPart(buf),
                         self.span_from(start_line, start_col),

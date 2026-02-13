@@ -134,7 +134,7 @@ pub const fn rt_func_idx(rt_offset: u32) -> u32 {
 /// If we exceed memory, call `memory.grow`.
 pub fn emit_alloc() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local 1: old_ptr
-    // old_ptr = heap_ptr
+                                                        // old_ptr = heap_ptr
     f.instruction(&Instruction::GlobalGet(GLOBAL_HEAP_PTR));
     f.instruction(&Instruction::LocalSet(1));
     // heap_ptr += size
@@ -152,7 +152,7 @@ pub fn emit_alloc() -> Function {
 /// Emit `val_nil() -> i32`.
 pub fn emit_val_nil() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-    // ptr = alloc(VALUE_SIZE)
+                                                        // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(0));
@@ -172,7 +172,7 @@ pub fn emit_val_nil() -> Function {
 /// signatures.  The function reassembles and stores the f64.
 pub fn emit_val_number() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-    // ptr = alloc(VALUE_SIZE)
+                                                        // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(2));
@@ -197,7 +197,7 @@ pub fn emit_val_number() -> Function {
 /// Emit `val_bool(b: i32) -> i32`.
 pub fn emit_val_bool() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-    // ptr = alloc(VALUE_SIZE)
+                                                        // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(1));
@@ -218,7 +218,7 @@ pub fn emit_val_bool() -> Function {
 /// Emit `val_string(data_ptr: i32, len: i32) -> i32`.
 pub fn emit_val_string() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-    // ptr = alloc(VALUE_SIZE)
+                                                        // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(2));
@@ -582,20 +582,26 @@ pub fn emit_val_string_concat() -> Function {
     f.instruction(&Instruction::LocalSet(4));
 
     // memory.copy(new_buf, a.w1, len_a)
-    f.instruction(&Instruction::LocalGet(4));        // dst
+    f.instruction(&Instruction::LocalGet(4)); // dst
     f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // src = a.w1
-    f.instruction(&Instruction::LocalGet(2));        // len_a
-    f.instruction(&Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 });
+    f.instruction(&Instruction::LocalGet(2)); // len_a
+    f.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
 
     // memory.copy(new_buf + len_a, b.w1, len_b)
     f.instruction(&Instruction::LocalGet(4));
     f.instruction(&Instruction::LocalGet(2));
-    f.instruction(&Instruction::I32Add);             // dst = new_buf + len_a
+    f.instruction(&Instruction::I32Add); // dst = new_buf + len_a
     f.instruction(&Instruction::LocalGet(1));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // src = b.w1
-    f.instruction(&Instruction::LocalGet(3));        // len_b
-    f.instruction(&Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 });
+    f.instruction(&Instruction::LocalGet(3)); // len_b
+    f.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
 
     // return val_string(new_buf, total_len)
     f.instruction(&Instruction::LocalGet(4));
@@ -657,9 +663,9 @@ pub fn emit_val_mul() -> Function {
 /// Emit `val_div` — with division-by-zero and NaN trap guards.
 pub fn emit_val_div(trap_msg_ptr: u32, trap_msg_len: u32) -> Function {
     let mut f = Function::new(vec![
-        (1, ValType::I32),  // local 2: result ptr
-        (1, ValType::F64),  // local 3: divisor
-        (1, ValType::F64),  // local 4: quotient
+        (1, ValType::I32), // local 2: result ptr
+        (1, ValType::F64), // local 3: divisor
+        (1, ValType::F64), // local 4: quotient
     ]);
 
     // Load divisor
@@ -863,13 +869,13 @@ pub fn emit_val_record_get() -> Function {
     // Compare key length first
     f.instruction(&Instruction::LocalGet(6));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // entry key_len
-    f.instruction(&Instruction::LocalGet(2));            // target key_len
+    f.instruction(&Instruction::LocalGet(2)); // target key_len
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Empty));
     // Lengths match — compare key data pointers (TODO: proper memcmp)
     f.instruction(&Instruction::LocalGet(6));
     f.instruction(&Instruction::I32Load(memarg(0, 2))); // entry key_offset
-    f.instruction(&Instruction::LocalGet(1));            // target key_ptr
+    f.instruction(&Instruction::LocalGet(1)); // target key_ptr
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Empty));
     // Found! result = entry.value_ptr

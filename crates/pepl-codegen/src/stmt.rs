@@ -14,11 +14,7 @@ use crate::runtime::*;
 use crate::types::*;
 
 /// Emit a slice of statements.
-pub fn emit_stmts(
-    stmts: &[Stmt],
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+pub fn emit_stmts(stmts: &[Stmt], ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     for stmt in stmts {
         emit_stmt(stmt, ctx, f)?;
     }
@@ -26,11 +22,7 @@ pub fn emit_stmts(
 }
 
 /// Emit a single statement.
-pub fn emit_stmt(
-    stmt: &Stmt,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+pub fn emit_stmt(stmt: &Stmt, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     match stmt {
         Stmt::Set(set) => emit_set(set, ctx, f),
         Stmt::Let(let_bind) => emit_let(let_bind, ctx, f),
@@ -207,11 +199,7 @@ fn emit_nested_set(
 // Let binding
 // ══════════════════════════════════════════════════════════════════════════════
 
-fn emit_let(
-    let_bind: &LetBinding,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_let(let_bind: &LetBinding, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     emit_expr(&let_bind.value, ctx, f)?;
 
     match &let_bind.name {
@@ -232,11 +220,7 @@ fn emit_let(
 // If / For / Match as statements (values are discarded)
 // ══════════════════════════════════════════════════════════════════════════════
 
-fn emit_if_stmt(
-    if_expr: &IfExpr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_if_stmt(if_expr: &IfExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // Evaluate condition
     emit_expr(&if_expr.condition, ctx, f)?;
     f.instruction(&Instruction::I32Load(memarg(4, 2)));
@@ -260,11 +244,7 @@ fn emit_if_stmt(
     Ok(())
 }
 
-fn emit_for_stmt(
-    for_expr: &ForExpr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_for_stmt(for_expr: &ForExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // Same as emit_for_expr but discard the result
     let list_local = ctx.alloc_local(ValType::I32);
     let arr_local = ctx.alloc_local(ValType::I32);
@@ -353,7 +333,10 @@ fn emit_match_stmt(
 ) -> CodegenResult<()> {
     // Emit as expr then drop the result
     crate::expr::emit_expr(
-        &Expr::new(ExprKind::Match(Box::new(match_expr.clone())), match_expr.span),
+        &Expr::new(
+            ExprKind::Match(Box::new(match_expr.clone())),
+            match_expr.span,
+        ),
         ctx,
         f,
     )?;
@@ -396,11 +379,7 @@ fn emit_assert(
     Ok(())
 }
 
-fn emit_expr_stmt(
-    expr: &Expr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_expr_stmt(expr: &Expr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     emit_expr(expr, ctx, f)?;
     f.instruction(&Instruction::Drop);
     Ok(())

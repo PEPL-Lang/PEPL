@@ -27,7 +27,12 @@ fn kinds(source: &str) -> Vec<TokenKind> {
 /// Lex and return all token kinds including Eof.
 fn kinds_with_eof(source: &str) -> Vec<TokenKind> {
     let sf = SourceFile::new("test.pepl", source);
-    Lexer::new(&sf).lex().tokens.into_iter().map(|t| t.kind).collect()
+    Lexer::new(&sf)
+        .lex()
+        .tokens
+        .into_iter()
+        .map(|t| t.kind)
+        .collect()
 }
 
 /// Lex and return the error count.
@@ -41,7 +46,12 @@ fn error_count(source: &str) -> usize {
 fn first_error(source: &str) -> String {
     let sf = SourceFile::new("test.pepl", source);
     let result = Lexer::new(&sf).lex();
-    result.errors.errors.first().map(|e| e.message.clone()).unwrap_or_default()
+    result
+        .errors
+        .errors
+        .first()
+        .map(|e| e.message.clone())
+        .unwrap_or_default()
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -141,17 +151,54 @@ fn test_builtin_type_and_gameloop_keywords() {
 fn test_all_39_keywords() {
     // Verify exact count: 12 + 9 + 8 + 5 + 5 = 39
     let keywords_39: Vec<&str> = vec![
-        "space", "state", "action", "view", "set", "let", "if", "else", "for", "in", "match", "return",
-        "invariant", "capabilities", "required", "optional", "credentials", "derived", "tests", "test", "assert",
-        "fn", "type", "true", "false", "nil", "not", "and", "or",
-        "number", "string", "bool", "list", "color",
-        "update", "handleEvent", "Result", "Surface", "InputEvent",
+        "space",
+        "state",
+        "action",
+        "view",
+        "set",
+        "let",
+        "if",
+        "else",
+        "for",
+        "in",
+        "match",
+        "return",
+        "invariant",
+        "capabilities",
+        "required",
+        "optional",
+        "credentials",
+        "derived",
+        "tests",
+        "test",
+        "assert",
+        "fn",
+        "type",
+        "true",
+        "false",
+        "nil",
+        "not",
+        "and",
+        "or",
+        "number",
+        "string",
+        "bool",
+        "list",
+        "color",
+        "update",
+        "handleEvent",
+        "Result",
+        "Surface",
+        "InputEvent",
     ];
     assert_eq!(keywords_39.len(), 39);
     for kw in &keywords_39 {
         let k = kinds(kw);
         assert_eq!(k.len(), 1, "keyword '{kw}' should lex to exactly 1 token");
-        assert!(k[0].is_keyword(), "'{kw}' should be recognised as a keyword");
+        assert!(
+            k[0].is_keyword(),
+            "'{kw}' should be recognised as a keyword"
+        );
     }
 }
 
@@ -171,11 +218,21 @@ fn test_module_names_reserved() {
 
 #[test]
 fn test_capability_names_reserved() {
-    let caps = ["http", "storage", "location", "notifications", "clipboard", "share"];
+    let caps = [
+        "http",
+        "storage",
+        "location",
+        "notifications",
+        "clipboard",
+        "share",
+    ];
     for c in &caps {
         let k = kinds(c);
         assert_eq!(k.len(), 1);
-        assert!(k[0].is_keyword(), "capability name '{c}' should be a keyword");
+        assert!(
+            k[0].is_keyword(),
+            "capability name '{c}' should be a keyword"
+        );
     }
 }
 
@@ -183,8 +240,19 @@ fn test_capability_names_reserved() {
 fn test_module_and_capability_count() {
     // 7 modules + 6 capabilities = 13
     let reserved_module_cap = [
-        "core", "math", "record", "time", "convert", "json", "timer",
-        "http", "storage", "location", "notifications", "clipboard", "share",
+        "core",
+        "math",
+        "record",
+        "time",
+        "convert",
+        "json",
+        "timer",
+        "http",
+        "storage",
+        "location",
+        "notifications",
+        "clipboard",
+        "share",
     ];
     assert_eq!(reserved_module_cap.len(), 13);
     for name in &reserved_module_cap {
@@ -249,7 +317,7 @@ fn test_integer_literals() {
 
 #[test]
 fn test_decimal_literals() {
-    assert_eq!(kinds("3.14"), vec![TokenKind::NumberLit(3.14)]);
+    assert_eq!(kinds("3.15"), vec![TokenKind::NumberLit(3.15)]);
     assert_eq!(kinds("0.5"), vec![TokenKind::NumberLit(0.5)]);
     assert_eq!(kinds("100.0"), vec![TokenKind::NumberLit(100.0)]);
 }
@@ -269,9 +337,15 @@ fn test_number_followed_by_dot_no_digit() {
 
 #[test]
 fn test_plain_string() {
-    assert_eq!(kinds(r#""hello""#), vec![TokenKind::StringLiteral("hello".into())]);
+    assert_eq!(
+        kinds(r#""hello""#),
+        vec![TokenKind::StringLiteral("hello".into())]
+    );
     assert_eq!(kinds(r#""""#), vec![TokenKind::StringLiteral("".into())]);
-    assert_eq!(kinds(r#""hello world""#), vec![TokenKind::StringLiteral("hello world".into())]);
+    assert_eq!(
+        kinds(r#""hello world""#),
+        vec![TokenKind::StringLiteral("hello world".into())]
+    );
 }
 
 #[test]
@@ -310,45 +384,54 @@ fn test_string_escape_sequences() {
 fn test_string_interpolation_simple() {
     // "hello ${name}"
     let k = kinds(r#""hello ${name}""#);
-    assert_eq!(k, vec![
-        TokenKind::StringStart("hello ".into()),
-        TokenKind::InterpolationStart,
-        TokenKind::Identifier("name".into()),
-        TokenKind::InterpolationEnd,
-        TokenKind::StringEnd("".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::StringStart("hello ".into()),
+            TokenKind::InterpolationStart,
+            TokenKind::Identifier("name".into()),
+            TokenKind::InterpolationEnd,
+            TokenKind::StringEnd("".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_string_interpolation_multiple() {
     // "${a} and ${b}"
     let k = kinds(r#""${a} and ${b}""#);
-    assert_eq!(k, vec![
-        TokenKind::StringStart("".into()),
-        TokenKind::InterpolationStart,
-        TokenKind::Identifier("a".into()),
-        TokenKind::InterpolationEnd,
-        TokenKind::StringPart(" and ".into()),
-        TokenKind::InterpolationStart,
-        TokenKind::Identifier("b".into()),
-        TokenKind::InterpolationEnd,
-        TokenKind::StringEnd("".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::StringStart("".into()),
+            TokenKind::InterpolationStart,
+            TokenKind::Identifier("a".into()),
+            TokenKind::InterpolationEnd,
+            TokenKind::StringPart(" and ".into()),
+            TokenKind::InterpolationStart,
+            TokenKind::Identifier("b".into()),
+            TokenKind::InterpolationEnd,
+            TokenKind::StringEnd("".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_string_interpolation_with_expr() {
     // "count: ${x + 1}"
     let k = kinds(r#""count: ${x + 1}""#);
-    assert_eq!(k, vec![
-        TokenKind::StringStart("count: ".into()),
-        TokenKind::InterpolationStart,
-        TokenKind::Identifier("x".into()),
-        TokenKind::Plus,
-        TokenKind::NumberLit(1.0),
-        TokenKind::InterpolationEnd,
-        TokenKind::StringEnd("".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::StringStart("count: ".into()),
+            TokenKind::InterpolationStart,
+            TokenKind::Identifier("x".into()),
+            TokenKind::Plus,
+            TokenKind::NumberLit(1.0),
+            TokenKind::InterpolationEnd,
+            TokenKind::StringEnd("".into()),
+        ]
+    );
 }
 
 #[test]
@@ -422,24 +505,30 @@ fn test_block_comment_unclosed_rejected() {
 #[test]
 fn test_newlines_are_tokens() {
     let k = kinds("a\nb");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("a".into()),
-        TokenKind::Newline,
-        TokenKind::Identifier("b".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("a".into()),
+            TokenKind::Newline,
+            TokenKind::Identifier("b".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_multiple_newlines() {
     let k = kinds("a\n\n\nb");
     // Each newline is its own token
-    assert_eq!(k, vec![
-        TokenKind::Identifier("a".into()),
-        TokenKind::Newline,
-        TokenKind::Newline,
-        TokenKind::Newline,
-        TokenKind::Identifier("b".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("a".into()),
+            TokenKind::Newline,
+            TokenKind::Newline,
+            TokenKind::Newline,
+            TokenKind::Identifier("b".into()),
+        ]
+    );
 }
 
 #[test]
@@ -493,12 +582,15 @@ fn test_underscore_standalone() {
 fn test_underscore_in_let() {
     // let _ = expr
     let k = kinds("let _ = 42");
-    assert_eq!(k, vec![
-        TokenKind::Let,
-        TokenKind::Underscore,
-        TokenKind::Eq,
-        TokenKind::NumberLit(42.0),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Let,
+            TokenKind::Underscore,
+            TokenKind::Eq,
+            TokenKind::NumberLit(42.0),
+        ]
+    );
 }
 
 #[test]
@@ -557,7 +649,10 @@ fn test_error_recovery_continues() {
     let result = Lexer::new(&sf).lex();
     assert!(result.errors.total_errors >= 3);
     // Should still produce the 42 token
-    assert!(result.tokens.iter().any(|t| t.kind == TokenKind::NumberLit(42.0)));
+    assert!(result
+        .tokens
+        .iter()
+        .any(|t| t.kind == TokenKind::NumberLit(42.0)));
 }
 
 #[test]
@@ -566,14 +661,20 @@ fn test_max_errors_cap() {
     let source = "@ ".repeat(25); // 25 invalid chars
     let sf = SourceFile::new("test.pepl", &source);
     let result = Lexer::new(&sf).lex();
-    assert_eq!(result.errors.total_errors, 20, "should cap at MAX_ERRORS=20");
+    assert_eq!(
+        result.errors.total_errors, 20,
+        "should cap at MAX_ERRORS=20"
+    );
 }
 
 #[test]
 fn test_unterminated_interpolation() {
     // String with unclosed interpolation: "hello ${name
     let count = error_count("\"hello ${name");
-    assert!(count >= 1, "unterminated interpolation should produce an error");
+    assert!(
+        count >= 1,
+        "unterminated interpolation should produce an error"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -599,98 +700,119 @@ fn test_eof_always_last() {
 #[test]
 fn test_state_field_declaration() {
     let k = kinds("count: number = 0");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("count".into()),
-        TokenKind::Colon,
-        TokenKind::KwNumber,
-        TokenKind::Eq,
-        TokenKind::NumberLit(0.0),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("count".into()),
+            TokenKind::Colon,
+            TokenKind::KwNumber,
+            TokenKind::Eq,
+            TokenKind::NumberLit(0.0),
+        ]
+    );
 }
 
 #[test]
 fn test_action_signature() {
     let k = kinds("action increment(amount: number)");
-    assert_eq!(k, vec![
-        TokenKind::Action,
-        TokenKind::Identifier("increment".into()),
-        TokenKind::LParen,
-        TokenKind::Identifier("amount".into()),
-        TokenKind::Colon,
-        TokenKind::KwNumber,
-        TokenKind::RParen,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Action,
+            TokenKind::Identifier("increment".into()),
+            TokenKind::LParen,
+            TokenKind::Identifier("amount".into()),
+            TokenKind::Colon,
+            TokenKind::KwNumber,
+            TokenKind::RParen,
+        ]
+    );
 }
 
 #[test]
 fn test_set_statement() {
     let k = kinds("set count = count + 1");
-    assert_eq!(k, vec![
-        TokenKind::Set,
-        TokenKind::Identifier("count".into()),
-        TokenKind::Eq,
-        TokenKind::Identifier("count".into()),
-        TokenKind::Plus,
-        TokenKind::NumberLit(1.0),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Set,
+            TokenKind::Identifier("count".into()),
+            TokenKind::Eq,
+            TokenKind::Identifier("count".into()),
+            TokenKind::Plus,
+            TokenKind::NumberLit(1.0),
+        ]
+    );
 }
 
 #[test]
 fn test_sum_type_declaration() {
     let k = kinds("type Status = | Active | Paused | Done");
-    assert_eq!(k, vec![
-        TokenKind::Type,
-        TokenKind::Identifier("Status".into()),
-        TokenKind::Eq,
-        TokenKind::Pipe,
-        TokenKind::Identifier("Active".into()),
-        TokenKind::Pipe,
-        TokenKind::Identifier("Paused".into()),
-        TokenKind::Pipe,
-        TokenKind::Identifier("Done".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Type,
+            TokenKind::Identifier("Status".into()),
+            TokenKind::Eq,
+            TokenKind::Pipe,
+            TokenKind::Identifier("Active".into()),
+            TokenKind::Pipe,
+            TokenKind::Identifier("Paused".into()),
+            TokenKind::Pipe,
+            TokenKind::Identifier("Done".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_view_header() {
     let k = kinds("view main() -> Surface");
-    assert_eq!(k, vec![
-        TokenKind::View,
-        TokenKind::Identifier("main".into()),
-        TokenKind::LParen,
-        TokenKind::RParen,
-        TokenKind::Arrow,
-        TokenKind::KwSurface,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::View,
+            TokenKind::Identifier("main".into()),
+            TokenKind::LParen,
+            TokenKind::RParen,
+            TokenKind::Arrow,
+            TokenKind::KwSurface,
+        ]
+    );
 }
 
 #[test]
 fn test_component_with_trailing_comma() {
     let k = kinds(r#"Text { value: "hi", }"#);
-    assert_eq!(k, vec![
-        TokenKind::Identifier("Text".into()),
-        TokenKind::LBrace,
-        TokenKind::Identifier("value".into()),
-        TokenKind::Colon,
-        TokenKind::StringLiteral("hi".into()),
-        TokenKind::Comma,
-        TokenKind::RBrace,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("Text".into()),
+            TokenKind::LBrace,
+            TokenKind::Identifier("value".into()),
+            TokenKind::Colon,
+            TokenKind::StringLiteral("hi".into()),
+            TokenKind::Comma,
+            TokenKind::RBrace,
+        ]
+    );
 }
 
 #[test]
 fn test_record_spread() {
     let k = kinds("{ ...existing, name: value }");
-    assert_eq!(k, vec![
-        TokenKind::LBrace,
-        TokenKind::DotDotDot,
-        TokenKind::Identifier("existing".into()),
-        TokenKind::Comma,
-        TokenKind::Identifier("name".into()),
-        TokenKind::Colon,
-        TokenKind::Identifier("value".into()),
-        TokenKind::RBrace,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::LBrace,
+            TokenKind::DotDotDot,
+            TokenKind::Identifier("existing".into()),
+            TokenKind::Comma,
+            TokenKind::Identifier("name".into()),
+            TokenKind::Colon,
+            TokenKind::Identifier("value".into()),
+            TokenKind::RBrace,
+        ]
+    );
 }
 
 #[test]
@@ -703,91 +825,109 @@ fn test_match_expression() {
 
 #[test]
 fn test_qualified_call() {
-    let k = kinds("math.round(3.14)");
-    assert_eq!(k, vec![
-        TokenKind::Math,
-        TokenKind::Dot,
-        TokenKind::Identifier("round".into()),
-        TokenKind::LParen,
-        TokenKind::NumberLit(3.14),
-        TokenKind::RParen,
-    ]);
+    let k = kinds("math.round(3.15)");
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Math,
+            TokenKind::Dot,
+            TokenKind::Identifier("round".into()),
+            TokenKind::LParen,
+            TokenKind::NumberLit(3.15),
+            TokenKind::RParen,
+        ]
+    );
 }
 
 #[test]
 fn test_nil_coalescing() {
     let k = kinds("value ?? default");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("value".into()),
-        TokenKind::QuestionQuestion,
-        TokenKind::Identifier("default".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("value".into()),
+            TokenKind::QuestionQuestion,
+            TokenKind::Identifier("default".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_result_unwrap() {
     let k = kinds("result?");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("result".into()),
-        TokenKind::Question,
-    ]);
+    assert_eq!(
+        k,
+        vec![TokenKind::Identifier("result".into()), TokenKind::Question,]
+    );
 }
 
 #[test]
 fn test_lambda_expression() {
     let k = kinds("fn(x) { x + 1 }");
-    assert_eq!(k, vec![
-        TokenKind::Fn,
-        TokenKind::LParen,
-        TokenKind::Identifier("x".into()),
-        TokenKind::RParen,
-        TokenKind::LBrace,
-        TokenKind::Identifier("x".into()),
-        TokenKind::Plus,
-        TokenKind::NumberLit(1.0),
-        TokenKind::RBrace,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Fn,
+            TokenKind::LParen,
+            TokenKind::Identifier("x".into()),
+            TokenKind::RParen,
+            TokenKind::LBrace,
+            TokenKind::Identifier("x".into()),
+            TokenKind::Plus,
+            TokenKind::NumberLit(1.0),
+            TokenKind::RBrace,
+        ]
+    );
 }
 
 #[test]
 fn test_list_literal() {
     let k = kinds("[1, 2, 3]");
-    assert_eq!(k, vec![
-        TokenKind::LBracket,
-        TokenKind::NumberLit(1.0),
-        TokenKind::Comma,
-        TokenKind::NumberLit(2.0),
-        TokenKind::Comma,
-        TokenKind::NumberLit(3.0),
-        TokenKind::RBracket,
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::LBracket,
+            TokenKind::NumberLit(1.0),
+            TokenKind::Comma,
+            TokenKind::NumberLit(2.0),
+            TokenKind::Comma,
+            TokenKind::NumberLit(3.0),
+            TokenKind::RBracket,
+        ]
+    );
 }
 
 #[test]
 fn test_boolean_operators() {
     let k = kinds("a and b or not c");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("a".into()),
-        TokenKind::And,
-        TokenKind::Identifier("b".into()),
-        TokenKind::Or,
-        TokenKind::Not,
-        TokenKind::Identifier("c".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("a".into()),
+            TokenKind::And,
+            TokenKind::Identifier("b".into()),
+            TokenKind::Or,
+            TokenKind::Not,
+            TokenKind::Identifier("c".into()),
+        ]
+    );
 }
 
 #[test]
 fn test_comparison_chain() {
     let k = kinds("a >= b and c != d");
-    assert_eq!(k, vec![
-        TokenKind::Identifier("a".into()),
-        TokenKind::GreaterEq,
-        TokenKind::Identifier("b".into()),
-        TokenKind::And,
-        TokenKind::Identifier("c".into()),
-        TokenKind::BangEq,
-        TokenKind::Identifier("d".into()),
-    ]);
+    assert_eq!(
+        k,
+        vec![
+            TokenKind::Identifier("a".into()),
+            TokenKind::GreaterEq,
+            TokenKind::Identifier("b".into()),
+            TokenKind::And,
+            TokenKind::Identifier("c".into()),
+            TokenKind::BangEq,
+            TokenKind::Identifier("d".into()),
+        ]
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -798,7 +938,11 @@ fn test_comparison_chain() {
 fn test_span_positions() {
     let sf = SourceFile::new("test.pepl", "let x = 42");
     let result = Lexer::new(&sf).lex();
-    let tokens: Vec<_> = result.tokens.iter().filter(|t| t.kind != TokenKind::Eof).collect();
+    let tokens: Vec<_> = result
+        .tokens
+        .iter()
+        .filter(|t| t.kind != TokenKind::Eof)
+        .collect();
 
     // `let` starts at col 1
     assert_eq!(tokens[0].span.start_line, 1);
@@ -821,7 +965,11 @@ fn test_span_positions() {
 fn test_span_multiline() {
     let sf = SourceFile::new("test.pepl", "a\nb");
     let result = Lexer::new(&sf).lex();
-    let tokens: Vec<_> = result.tokens.iter().filter(|t| t.kind != TokenKind::Eof).collect();
+    let tokens: Vec<_> = result
+        .tokens
+        .iter()
+        .filter(|t| t.kind != TokenKind::Eof)
+        .collect();
 
     // `a` on line 1
     assert_eq!(tokens[0].span.start_line, 1);

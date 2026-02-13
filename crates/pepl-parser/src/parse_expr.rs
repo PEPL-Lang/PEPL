@@ -580,10 +580,7 @@ impl<'src> Parser<'src> {
         if params.len() > 8 {
             self.error_at_current(
                 ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
-                format!(
-                    "maximum 8 parameters per function, got {}",
-                    params.len()
-                ),
+                format!("maximum 8 parameters per function, got {}", params.len()),
             );
         }
 
@@ -706,11 +703,7 @@ impl<'src> Parser<'src> {
     /// Parse an interpolated string: `"text ${expr} more ${expr} end"`
     ///
     /// Called after the `StringStart` token has been consumed.
-    fn parse_string_interpolation(
-        &mut self,
-        start_text: String,
-        start_span: Span,
-    ) -> Option<Expr> {
+    fn parse_string_interpolation(&mut self, start_text: String, start_span: Span) -> Option<Expr> {
         let mut parts = Vec::new();
         if !start_text.is_empty() {
             parts.push(StringPart::Literal(start_text));

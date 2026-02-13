@@ -117,11 +117,18 @@ fn test_prec_mul_binds_tighter_than_add() {
     let expr = derived_expr(&prog);
     // Top-level should be Binary Add
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::Add);
             assert!(matches!(left.kind, ExprKind::Identifier(ref n) if n == "a"));
             match &right.kind {
-                ExprKind::Binary { op: inner_op, left: rl, right: rr, .. } => {
+                ExprKind::Binary {
+                    op: inner_op,
+                    left: rl,
+                    right: rr,
+                    ..
+                } => {
                     assert_eq!(*inner_op, BinOp::Mul);
                     assert!(matches!(rl.kind, ExprKind::Identifier(ref n) if n == "b"));
                     assert!(matches!(rr.kind, ExprKind::Identifier(ref n) if n == "c"));
@@ -139,11 +146,17 @@ fn test_prec_left_assoc_same_level() {
     let prog = parse_ok(&wrap_expr("a + b * c - d"));
     let expr = derived_expr(&prog);
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::Sub, "top-level should be Sub");
             assert!(matches!(right.kind, ExprKind::Identifier(ref n) if n == "d"));
             match &left.kind {
-                ExprKind::Binary { op: inner_op, right: inner_right, .. } => {
+                ExprKind::Binary {
+                    op: inner_op,
+                    right: inner_right,
+                    ..
+                } => {
                     assert_eq!(*inner_op, BinOp::Add);
                     match &inner_right.kind {
                         ExprKind::Binary { op: mul_op, .. } => {
@@ -165,7 +178,9 @@ fn test_prec_comparison_tighter_than_and() {
     let prog = parse_ok(&wrap_bool_expr("a > b and c < d"));
     let expr = invariant_expr(&prog);
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::And);
             match &left.kind {
                 ExprKind::Binary { op: lop, .. } => assert_eq!(*lop, BinOp::Greater),
@@ -197,7 +212,9 @@ fn test_prec_and_tighter_than_or() {
     let prog = parse_ok(src);
     let expr = &prog.space.body.invariants[0].condition;
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::Or);
             assert!(matches!(left.kind, ExprKind::Identifier(ref n) if n == "a"));
             match &right.kind {
@@ -224,10 +241,14 @@ fn test_prec_unary_not_tightest() {
     let prog = parse_ok(src);
     let expr = &prog.space.body.invariants[0].condition;
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::And);
             match &left.kind {
-                ExprKind::Unary { op: uop, operand, .. } => {
+                ExprKind::Unary {
+                    op: uop, operand, ..
+                } => {
                     assert_eq!(*uop, UnaryOp::Not);
                     assert!(matches!(operand.kind, ExprKind::Identifier(ref n) if n == "a"));
                 }
@@ -281,11 +302,18 @@ fn test_prec_full_chain() {
     let prog = parse_ok(src);
     let expr = &prog.space.body.invariants[0].condition;
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::Or, "top = or");
             assert!(matches!(right.kind, ExprKind::Identifier(ref n) if n == "e"));
             match &left.kind {
-                ExprKind::Binary { op: cmp_op, left: cmp_l, right: cmp_r, .. } => {
+                ExprKind::Binary {
+                    op: cmp_op,
+                    left: cmp_l,
+                    right: cmp_r,
+                    ..
+                } => {
                     assert_eq!(*cmp_op, BinOp::Greater, "cmp = >");
                     // left of >: a + b
                     match &cmp_l.kind {
@@ -371,7 +399,9 @@ fn test_prec_nil_coalesce_tighter_than_and() {
     let prog = parse_ok(src);
     let expr = &prog.space.body.invariants[0].condition;
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::And);
             match &left.kind {
                 ExprKind::NilCoalesce { .. } => { /* correct */ }
@@ -400,16 +430,18 @@ fn test_prec_qualified_call_unwrap_field_access() {
         ExprKind::FieldAccess { object, field, .. } => {
             assert_eq!(field.name, "body");
             match &object.kind {
-                ExprKind::ResultUnwrap(inner) => {
-                    match &inner.kind {
-                        ExprKind::QualifiedCall { module, function, args } => {
-                            assert_eq!(module.name, "http");
-                            assert_eq!(function.name, "get");
-                            assert_eq!(args.len(), 1);
-                        }
-                        other => panic!("expected QualifiedCall, got {:?}", other),
+                ExprKind::ResultUnwrap(inner) => match &inner.kind {
+                    ExprKind::QualifiedCall {
+                        module,
+                        function,
+                        args,
+                    } => {
+                        assert_eq!(module.name, "http");
+                        assert_eq!(function.name, "get");
+                        assert_eq!(args.len(), 1);
                     }
-                }
+                    other => panic!("expected QualifiedCall, got {:?}", other),
+                },
                 other => panic!("expected ResultUnwrap, got {:?}", other),
             }
         }
@@ -781,11 +813,17 @@ fn test_prec_mul_div_mod_same_level_left_assoc() {
     let prog = parse_ok(&wrap_expr("a * b / c % d"));
     let expr = derived_expr(&prog);
     match &expr.kind {
-        ExprKind::Binary { op, left, right, .. } => {
+        ExprKind::Binary {
+            op, left, right, ..
+        } => {
             assert_eq!(*op, BinOp::Mod, "top-level should be Mod");
             assert!(matches!(right.kind, ExprKind::Identifier(ref n) if n == "d"));
             match &left.kind {
-                ExprKind::Binary { op: div_op, left: div_l, .. } => {
+                ExprKind::Binary {
+                    op: div_op,
+                    left: div_l,
+                    ..
+                } => {
                     assert_eq!(*div_op, BinOp::Div);
                     match &div_l.kind {
                         ExprKind::Binary { op: mul_op, .. } => {
@@ -807,11 +845,17 @@ fn test_prec_add_sub_same_level_left_assoc() {
     let prog = parse_ok(&wrap_expr("a + b - c + d"));
     let expr = derived_expr(&prog);
     match &expr.kind {
-        ExprKind::Binary { op, right, left, .. } => {
+        ExprKind::Binary {
+            op, right, left, ..
+        } => {
             assert_eq!(*op, BinOp::Add, "top = Add");
             assert!(matches!(right.kind, ExprKind::Identifier(ref n) if n == "d"));
             match &left.kind {
-                ExprKind::Binary { op: sub_op, left: sub_l, .. } => {
+                ExprKind::Binary {
+                    op: sub_op,
+                    left: sub_l,
+                    ..
+                } => {
                     assert_eq!(*sub_op, BinOp::Sub);
                     match &sub_l.kind {
                         ExprKind::Binary { op: add_op, .. } => {
@@ -836,7 +880,13 @@ fn test_prec_eq_neq_same_level() {
 
     let prog2 = parse_ok(&wrap_bool_expr("a != b"));
     let expr2 = invariant_expr(&prog2);
-    assert!(matches!(expr2.kind, ExprKind::Binary { op: BinOp::NotEq, .. }));
+    assert!(matches!(
+        expr2.kind,
+        ExprKind::Binary {
+            op: BinOp::NotEq,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -883,14 +933,12 @@ fn test_prec_paren_override() {
             assert_eq!(*op, BinOp::Mul);
             // left should be a grouped expression containing Add
             match &left.kind {
-                ExprKind::Paren(inner) => {
-                    match &inner.kind {
-                        ExprKind::Binary { op: add_op, .. } => {
-                            assert_eq!(*add_op, BinOp::Add);
-                        }
-                        other => panic!("expected Binary Add inside parens, got {:?}", other),
+                ExprKind::Paren(inner) => match &inner.kind {
+                    ExprKind::Binary { op: add_op, .. } => {
+                        assert_eq!(*add_op, BinOp::Add);
                     }
-                }
+                    other => panic!("expected Binary Add inside parens, got {:?}", other),
+                },
                 other => panic!("expected Paren, got {:?}", other),
             }
         }
@@ -911,7 +959,11 @@ fn test_method_chain() {
         ExprKind::FieldAccess { object, field, .. } => {
             assert_eq!(field.name, "c");
             match &object.kind {
-                ExprKind::FieldAccess { object: inner_obj, field: inner_field, .. } => {
+                ExprKind::FieldAccess {
+                    object: inner_obj,
+                    field: inner_field,
+                    ..
+                } => {
                     assert_eq!(inner_field.name, "b");
                     assert!(matches!(inner_obj.kind, ExprKind::Identifier(ref n) if n == "a"));
                 }
@@ -1093,9 +1145,7 @@ fn test_many_state_fields_ok() {
     for i in 0..20 {
         fields.push_str(&format!("    f{}: number = {}\n", i, i));
     }
-    let src = format!(
-        "space T {{\n  state {{\n{fields}  }}\n}}"
-    );
+    let src = format!("space T {{\n  state {{\n{fields}  }}\n}}");
     let errors = error_count(&src);
     assert_eq!(errors, 0, "many state fields must be allowed");
 }
@@ -1105,14 +1155,9 @@ fn test_many_actions_ok() {
     // No limit on number of actions
     let mut actions = String::new();
     for i in 0..10 {
-        actions.push_str(&format!(
-            "  action a{}() {{\n    set x = {}\n  }}\n",
-            i, i
-        ));
+        actions.push_str(&format!("  action a{}() {{\n    set x = {}\n  }}\n", i, i));
     }
-    let src = format!(
-        "space T {{\n  state {{\n    x: number = 0\n  }}\n{actions}}}"
-    );
+    let src = format!("space T {{\n  state {{\n    x: number = 0\n  }}\n{actions}}}");
     let errors = error_count(&src);
     assert_eq!(errors, 0, "many actions must be allowed");
 }
@@ -1171,5 +1216,8 @@ fn test_error_recovery_after_e607_lambda() {
 }"#,
     );
     assert!(result.errors.has_errors());
-    assert!(result.program.is_some(), "should recover after E607 lambda depth");
+    assert!(
+        result.program.is_some(),
+        "should recover after E607 lambda depth"
+    );
 }

@@ -236,11 +236,7 @@ pub fn emit_render(
 /// Emit a UI block → record value representing the Surface tree.
 ///
 /// Each component becomes a record: `{ component: "Name", props: {...}, children: [...] }`
-fn emit_ui_block(
-    block: &UIBlock,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_ui_block(block: &UIBlock, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // Build a list of surface nodes
     let count = block.elements.len();
     if count == 0 {
@@ -271,11 +267,7 @@ fn emit_ui_block(
 }
 
 /// Emit a single UI element → surface node record.
-fn emit_ui_element(
-    elem: &UIElement,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_ui_element(elem: &UIElement, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     match elem {
         UIElement::Component(comp) => emit_component_expr(comp, ctx, f),
         UIElement::Let(let_bind) => {
@@ -367,11 +359,7 @@ fn emit_component_expr(
 }
 
 /// Emit props as a record value.
-fn emit_props(
-    props: &[PropAssign],
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_props(props: &[PropAssign], ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     if props.is_empty() {
         f.instruction(&Instruction::I32Const(0));
         f.instruction(&Instruction::I32Const(0));
@@ -408,11 +396,7 @@ fn emit_props(
     Ok(())
 }
 
-fn emit_ui_if(
-    ui_if: &UIIf,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_ui_if(ui_if: &UIIf, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     emit_expr(&ui_if.condition, ctx, f)?;
     f.instruction(&Instruction::I32Load(memarg(4, 2)));
     f.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
@@ -431,11 +415,7 @@ fn emit_ui_if(
     Ok(())
 }
 
-fn emit_ui_for(
-    ui_for: &UIFor,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_ui_for(ui_for: &UIFor, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // For loops in UI produce a list of surface nodes
     let list_local = ctx.alloc_local(ValType::I32);
     let arr_local = ctx.alloc_local(ValType::I32);
@@ -628,10 +608,7 @@ fn emit_recompute_derived(
         let field_name = field.name.name.clone();
         crate::stmt::emit_stmt(
             &Stmt::Set(SetStmt {
-                target: vec![pepl_types::ast::Ident::new(
-                    field_name,
-                    field.name.span,
-                )],
+                target: vec![pepl_types::ast::Ident::new(field_name, field.name.span)],
                 value: Expr::new(ExprKind::NilLit, field.value.span), // placeholder
                 span: field.span,
             }),

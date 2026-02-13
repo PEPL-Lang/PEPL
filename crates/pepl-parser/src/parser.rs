@@ -55,7 +55,9 @@ impl<'src> Parser<'src> {
     /// Returns the current token without advancing.
     pub(crate) fn peek(&self) -> &Token {
         self.tokens.get(self.pos).unwrap_or_else(|| {
-            self.tokens.last().expect("token stream should end with Eof")
+            self.tokens
+                .last()
+                .expect("token stream should end with Eof")
         })
     }
 
@@ -243,7 +245,9 @@ impl<'src> Parser<'src> {
     /// Expect an upper-case identifier (component name or type name).
     pub(crate) fn expect_upper_identifier(&mut self) -> Option<pepl_types::ast::Ident> {
         match self.peek_kind().clone() {
-            TokenKind::Identifier(ref name) if name.starts_with(|c: char| c.is_ascii_uppercase()) => {
+            TokenKind::Identifier(ref name)
+                if name.starts_with(|c: char| c.is_ascii_uppercase()) =>
+            {
                 let name = name.clone();
                 let span = self.advance().span;
                 Some(pepl_types::ast::Ident::new(name, span))
@@ -315,8 +319,7 @@ impl<'src> Parser<'src> {
             .line(span.start_line)
             .unwrap_or("")
             .to_string();
-        let error =
-            PeplError::new(&self.file_name, code, message, span, source_line);
+        let error = PeplError::new(&self.file_name, code, message, span, source_line);
         self.errors.push_error(error);
     }
 

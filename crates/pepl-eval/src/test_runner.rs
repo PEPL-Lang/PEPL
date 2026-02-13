@@ -241,10 +241,7 @@ fn execute_test_expr(
     match &expr.kind {
         ExprKind::Call { name, args } => {
             // Check if this is an action dispatch
-            let is_action = space_body
-                .actions
-                .iter()
-                .any(|a| a.name.name == name.name);
+            let is_action = space_body.actions.iter().any(|a| a.name.name == name.name);
 
             if is_action {
                 let mut arg_vals = Vec::new();

@@ -747,7 +747,9 @@ fn test_qualified_call() {
     let field = &prog.space.body.derived.unwrap().fields[0];
     match &field.value.kind {
         ExprKind::QualifiedCall {
-            module, function, args,
+            module,
+            function,
+            args,
         } => {
             assert_eq!(module.name, "list");
             assert_eq!(function.name, "length");

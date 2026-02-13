@@ -46,7 +46,9 @@ impl<'src> Parser<'src> {
                 Some(UIElement::For(ui_for))
             }
             // Component: starts with an upper-case identifier
-            TokenKind::Identifier(ref name) if name.starts_with(|c: char| c.is_ascii_uppercase()) => {
+            TokenKind::Identifier(ref name)
+                if name.starts_with(|c: char| c.is_ascii_uppercase()) =>
+            {
                 let comp = self.parse_component_expr()?;
                 Some(UIElement::Component(comp))
             }

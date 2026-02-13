@@ -59,7 +59,8 @@ fn assert_error(source: &str, expected_code: ErrorCode) {
 
 #[test]
 fn canonical_counter() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space Counter {
   state {
     count: number = 0
@@ -83,7 +84,8 @@ space Counter {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -92,7 +94,8 @@ space Counter {
 
 #[test]
 fn canonical_todo_list() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space TodoList {
   state {
     todos: list<{ text: string, done: bool }> = []
@@ -130,7 +133,8 @@ space TodoList {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -139,7 +143,8 @@ space TodoList {
 
 #[test]
 fn canonical_unit_converter() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space UnitConverter {
   state {
     value: number = 0
@@ -162,7 +167,8 @@ space UnitConverter {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -171,7 +177,8 @@ space UnitConverter {
 
 #[test]
 fn canonical_weather_dashboard() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space WeatherDashboard {
   state {
     city: string = "London"
@@ -233,7 +240,8 @@ space WeatherDashboard {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -242,7 +250,8 @@ space WeatherDashboard {
 
 #[test]
 fn canonical_pomodoro_timer() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space PomodoroTimer {
   state {
     mode: string = "idle"
@@ -303,7 +312,8 @@ space PomodoroTimer {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -312,7 +322,8 @@ space PomodoroTimer {
 
 #[test]
 fn canonical_habit_tracker() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space HabitTracker {
   state {
     habits: list<{ name: string, streak: number, last_done: number }> = []
@@ -372,7 +383,8 @@ space HabitTracker {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -381,7 +393,8 @@ space HabitTracker {
 
 #[test]
 fn canonical_quiz_app() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space QuizApp {
   state {
     current_question: number = 0
@@ -434,7 +447,8 @@ space QuizApp {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -443,7 +457,8 @@ space QuizApp {
 
 #[test]
 fn e402_unknown_component() {
-    assert_error(r#"
+    assert_error(
+        r#"
 space App {
   state { x: number = 0 }
   view main() -> Surface {
@@ -452,12 +467,15 @@ space App {
     }
   }
 }
-"#, ErrorCode::UNKNOWN_COMPONENT);
+"#,
+        ErrorCode::UNKNOWN_COMPONENT,
+    );
 }
 
 #[test]
 fn e402_misspelled_component() {
-    assert_error(r#"
+    assert_error(
+        r#"
 space App {
   state { x: number = 0 }
   action noop() { }
@@ -467,12 +485,15 @@ space App {
     }
   }
 }
-"#, ErrorCode::UNKNOWN_COMPONENT);
+"#,
+        ErrorCode::UNKNOWN_COMPONENT,
+    );
 }
 
 #[test]
 fn e402_valid_components_no_error() {
-    assert_ok(r#"
+    assert_ok(
+        r#"
 space App {
   state { x: number = 0 }
   action noop() { }
@@ -486,19 +507,23 @@ space App {
     }
   }
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn e402_custom_component_name() {
-    assert_error(r#"
+    assert_error(
+        r#"
 space App {
   state { x: number = 0 }
   view main() -> Surface {
     MyCustomWidget { }
   }
 }
-"#, ErrorCode::UNKNOWN_COMPONENT);
+"#,
+        ErrorCode::UNKNOWN_COMPONENT,
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

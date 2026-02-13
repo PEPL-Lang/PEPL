@@ -113,9 +113,12 @@ impl TypeEnv {
 
     /// Check if we are inside an action (anywhere in the scope chain).
     pub fn in_action(&self) -> bool {
-        self.scopes
-            .iter()
-            .any(|s| matches!(s.kind, ScopeKind::Action | ScopeKind::Update | ScopeKind::HandleEvent))
+        self.scopes.iter().any(|s| {
+            matches!(
+                s.kind,
+                ScopeKind::Action | ScopeKind::Update | ScopeKind::HandleEvent
+            )
+        })
     }
 
     /// Check if we are inside a view (anywhere in the scope chain).

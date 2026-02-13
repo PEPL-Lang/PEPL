@@ -12,9 +12,9 @@ use std::collections::HashMap;
 
 use pepl_types::ast::*;
 use wasm_encoder::{
-    CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
-    ExportSection, Function, FunctionSection, GlobalSection, GlobalType,
-    ImportSection, MemorySection, MemoryType, Module, TypeSection, ValType,
+    CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind, ExportSection,
+    Function, FunctionSection, GlobalSection, GlobalType, ImportSection, MemorySection, MemoryType,
+    Module, TypeSection, ValType,
 };
 
 use crate::error::{CodegenError, CodegenResult};
@@ -117,9 +117,8 @@ impl<'a> Compiler<'a> {
         let wasm_bytes = module.finish();
 
         // 10. Validate
-        wasmparser::validate(&wasm_bytes).map_err(|e| {
-            CodegenError::ValidationFailed(format!("{e}"))
-        })?;
+        wasmparser::validate(&wasm_bytes)
+            .map_err(|e| CodegenError::ValidationFailed(format!("{e}")))?;
 
         Ok(wasm_bytes)
     }
@@ -177,7 +176,9 @@ impl<'a> Compiler<'a> {
         // TYPE_I32_I32: (i32) -> i32
         types.ty().function(vec![ValType::I32], vec![ValType::I32]);
         // TYPE_I32X2_VOID: (i32, i32) -> ()
-        types.ty().function(vec![ValType::I32, ValType::I32], vec![]);
+        types
+            .ty()
+            .function(vec![ValType::I32, ValType::I32], vec![]);
         // TYPE_I32X2_I32: (i32, i32) -> i32
         types
             .ty()
@@ -450,8 +451,7 @@ impl<'a> Compiler<'a> {
         // Conditionally: update(dt_ptr: i32)
         let mut next_idx = get_state_idx + 1;
         if let Some(update_decl) = &body.update {
-            self.function_table
-                .insert("update".to_string(), next_idx);
+            self.function_table.insert("update".to_string(), next_idx);
             func_section.function(TYPE_I32_VOID);
             let mut update_scratch = Function::new(vec![]);
             let mut update_ctx = self.make_func_context(1);

@@ -397,28 +397,28 @@
 ## Phase 8: Integration & Packaging
 
 ### 8.1 End-to-End Pipeline
-- [ ] Wire all stages: source → lexer → parser → type checker → invariant checker → evaluator (dev) / codegen (prod) → .wasm
-- [ ] Compile all 7 canonical examples end-to-end
-- [ ] Verify structured error JSON output for invalid inputs
-- [ ] Verify compilation < 500ms for small spaces (< 200 lines)
-- [ ] Verify compilation < 5s for large spaces (1000+ lines)
-- [ ] Verify action execution < 50ms for all canonical examples
-- [ ] Verify memory per space < 100KB for small spaces
+- [x] Wire all stages: source → lexer → parser → type checker → invariant checker → evaluator (dev) / codegen (prod) → .wasm
+- [x] Compile all 7 canonical examples end-to-end
+- [x] Verify structured error JSON output for invalid inputs
+- [x] Verify compilation < 500ms for small spaces (< 200 lines)
+- [x] Verify compilation < 5s for large spaces (1000+ lines)
+- [x] Verify action execution < 50ms for all canonical examples
+- [x] Verify memory per space < 100KB for small spaces
 
 ### 8.2 WASM-Pack Build
-- [ ] Configure `wasm-pack` for browser target
-- [ ] Expose `compile(source: &str) -> CompileResult` as WASM export
-- [ ] `CompileResult` returns either `.wasm` bytes or structured error JSON
-- [ ] Verify compiler-as-WASM runs in browser Web Worker
-- [ ] Package size target: < 2MB for compiler WASM
+- [x] Configure `wasm-pack` for browser target
+- [x] Expose `compile(source: &str) -> CompileResult` as WASM export
+- [x] `CompileResult` returns either `.wasm` bytes or structured error JSON
+- [x] Verify compiler-as-WASM runs in browser Web Worker
+- [x] Package size target: < 2MB for compiler WASM
 
 ### 8.3 Final Validation
-- [ ] All canonical examples: compile → instantiate → init → dispatch actions → render → verify output
-- [ ] Error code coverage: every E-code (E100–E699) has at least one test
-- [ ] Validate WASM import/export contract matches host-integration.md spec
-- [ ] Validate LLM Generation Contract examples compile and execute correctly
-- [ ] WASM output matches evaluator golden reference for all canonical examples
-- [ ] Full determinism proof: 100 iterations across full pipeline
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] `cargo fmt --check` clean
-- [ ] README.md complete with build instructions and architecture overview
+- [x] All canonical examples: compile → instantiate → init → dispatch actions → render → verify output
+- [x] Error code coverage: every E-code (E100–E699) has at least one test
+- [x] Validate WASM import/export contract matches host-integration.md spec
+- [x] Validate LLM Generation Contract examples compile and execute correctly
+- [x] WASM output matches evaluator golden reference for all canonical examples
+- [x] Full determinism proof: 100 iterations across full pipeline
+- [x] `cargo clippy -- -D warnings` clean
+- [x] `cargo fmt --check` clean
+- [x] README.md complete with build instructions and architecture overview

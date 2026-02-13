@@ -3,7 +3,7 @@
 use crate::env::Environment;
 use crate::error::{EvalError, EvalResult};
 use pepl_stdlib::modules::{convert, core, json, list, math, record, string, time, timer};
-use pepl_stdlib::{StdlibModule, Value, ResultValue};
+use pepl_stdlib::{ResultValue, StdlibModule, Value};
 use pepl_types::ast::*;
 use std::collections::BTreeMap;
 
@@ -131,9 +131,10 @@ impl Evaluator {
                             fields.insert(k, v);
                         }
                     } else {
-                        return Err(EvalError::TypeMismatch(
-                            format!("spread requires record, got {}", val.type_name()),
-                        ));
+                        return Err(EvalError::TypeMismatch(format!(
+                            "spread requires record, got {}",
+                            val.type_name()
+                        )));
                     }
                 }
             }
@@ -193,9 +194,7 @@ impl Evaluator {
             Value::Record { fields, .. } => fields
                 .get(field)
                 .cloned()
-                .ok_or_else(|| {
-                    EvalError::Runtime(format!("record has no field '{field}'"))
-                }),
+                .ok_or_else(|| EvalError::Runtime(format!("record has no field '{field}'"))),
             Value::Nil => Err(EvalError::NilAccess(format!(
                 "cannot access field '{field}' on nil"
             ))),
@@ -268,7 +267,9 @@ impl Evaluator {
                     }
                     let result = a / b;
                     if result.is_nan() || result.is_infinite() {
-                        return Err(EvalError::ArithmeticTrap("division produced NaN/Infinity".into()));
+                        return Err(EvalError::ArithmeticTrap(
+                            "division produced NaN/Infinity".into(),
+                        ));
                     }
                     Ok(Value::Number(result))
                 } else {
@@ -308,14 +309,14 @@ impl Evaluator {
             (Value::Number(a), Value::Number(b)) => {
                 let result = a + b;
                 if result.is_nan() || result.is_infinite() {
-                    Err(EvalError::ArithmeticTrap("addition produced NaN/Infinity".into()))
+                    Err(EvalError::ArithmeticTrap(
+                        "addition produced NaN/Infinity".into(),
+                    ))
                 } else {
                     Ok(Value::Number(result))
                 }
             }
-            (Value::String(a), Value::String(b)) => {
-                Ok(Value::String(format!("{a}{b}")))
-            }
+            (Value::String(a), Value::String(b)) => Ok(Value::String(format!("{a}{b}"))),
             _ => Err(EvalError::TypeMismatch(format!(
                 "cannot add {} and {}",
                 lv.type_name(),
@@ -334,7 +335,9 @@ impl Evaluator {
         if let (Value::Number(a), Value::Number(b)) = (lv, rv) {
             let result = op(*a, *b);
             if result.is_nan() || result.is_infinite() {
-                Err(EvalError::ArithmeticTrap(format!("{symbol} produced NaN/Infinity")))
+                Err(EvalError::ArithmeticTrap(format!(
+                    "{symbol} produced NaN/Infinity"
+                )))
             } else {
                 Ok(Value::Number(result))
             }
@@ -355,10 +358,9 @@ impl Evaluator {
     ) -> EvalResult<Value> {
         match (lv, rv) {
             (Value::Number(a), Value::Number(b)) => Ok(Value::Bool(op(*a, *b))),
-            (Value::String(a), Value::String(b)) => Ok(Value::Bool(op(
-                a.len() as f64,
-                b.len() as f64,
-            ))),
+            (Value::String(a), Value::String(b)) => {
+                Ok(Value::Bool(op(a.len() as f64, b.len() as f64)))
+            }
             _ => Err(EvalError::TypeMismatch(format!(
                 "cannot compare {} and {}",
                 lv.type_name(),
@@ -619,12 +621,7 @@ impl Evaluator {
         Ok(())
     }
 
-    fn set_nested_field(
-        &self,
-        current: &Value,
-        path: &[Ident],
-        value: Value,
-    ) -> EvalResult<Value> {
+    fn set_nested_field(&self, current: &Value, path: &[Ident], value: Value) -> EvalResult<Value> {
         if path.is_empty() {
             return Ok(value);
         }
@@ -638,11 +635,9 @@ impl Evaluator {
                 if path.len() == 1 {
                     new_fields.insert(field_name.clone(), value);
                 } else {
-                    let inner = fields
-                        .get(field_name)
-                        .ok_or_else(|| {
-                            EvalError::Runtime(format!("record has no field '{field_name}'"))
-                        })?;
+                    let inner = fields.get(field_name).ok_or_else(|| {
+                        EvalError::Runtime(format!("record has no field '{field_name}'"))
+                    })?;
                     let new_inner = self.set_nested_field(inner, &path[1..], value)?;
                     new_fields.insert(field_name.clone(), new_inner);
                 }
@@ -694,8 +689,7 @@ impl Evaluator {
         // Special handling for core.log → capture output
         if module == "core" && function == "log" {
             if let Some(val) = args.first() {
-                self.log_output
-                    .push(self.value_to_display_string(val));
+                self.log_output.push(self.value_to_display_string(val));
             }
             return Ok(Value::Nil);
         }
@@ -763,12 +757,12 @@ impl Evaluator {
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Nil, Value::Nil) => true,
             (Value::List(x), Value::List(y)) => {
-                x.len() == y.len() && x.iter().zip(y.iter()).all(|(a, b)| self.structural_eq(a, b))
+                x.len() == y.len()
+                    && x.iter()
+                        .zip(y.iter())
+                        .all(|(a, b)| self.structural_eq(a, b))
             }
-            (
-                Value::Record { fields: fa, .. },
-                Value::Record { fields: fb, .. },
-            ) => {
+            (Value::Record { fields: fa, .. }, Value::Record { fields: fb, .. }) => {
                 fa.len() == fb.len()
                     && fa
                         .iter()

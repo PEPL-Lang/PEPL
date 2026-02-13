@@ -36,9 +36,7 @@ pub fn emit_expr(expr: &Expr, ctx: &mut FuncContext, f: &mut Function) -> Codege
             function,
             args,
         } => emit_qualified_call(&module.name, &function.name, args, ctx, f),
-        ExprKind::FieldAccess { object, field } => {
-            emit_field_access(object, &field.name, ctx, f)
-        }
+        ExprKind::FieldAccess { object, field } => emit_field_access(object, &field.name, ctx, f),
         ExprKind::MethodCall {
             object,
             method,
@@ -107,11 +105,7 @@ fn emit_nil_lit(f: &mut Function) -> CodegenResult<()> {
     Ok(())
 }
 
-fn emit_list_lit(
-    elems: &[Expr],
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_list_lit(elems: &[Expr], ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     let count = elems.len() as i32;
     if count == 0 {
         // Empty list: arr_ptr = 0, count = 0
@@ -549,11 +543,7 @@ fn emit_unary(
     Ok(())
 }
 
-fn emit_result_unwrap(
-    inner: &Expr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_result_unwrap(inner: &Expr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // `expr?` — if the result is an error variant, trap; otherwise unwrap.
     // For now, just pass through (the type checker validates this).
     emit_expr(inner, ctx, f)?;
@@ -587,11 +577,7 @@ fn emit_nil_coalesce(
 // Control Flow Expressions
 // ══════════════════════════════════════════════════════════════════════════════
 
-fn emit_if_expr(
-    if_expr: &IfExpr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_if_expr(if_expr: &IfExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // Evaluate condition
     emit_expr(&if_expr.condition, ctx, f)?;
     // Extract bool value: load w1 (i32)
@@ -622,11 +608,7 @@ fn emit_if_expr(
     Ok(())
 }
 
-fn emit_for_expr(
-    for_expr: &ForExpr,
-    ctx: &mut FuncContext,
-    f: &mut Function,
-) -> CodegenResult<()> {
+fn emit_for_expr(for_expr: &ForExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
     // Evaluate iterable → should be a list value
     let list_local = ctx.alloc_local(ValType::I32);
     let arr_local = ctx.alloc_local(ValType::I32);

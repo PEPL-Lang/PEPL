@@ -212,7 +212,10 @@ mod tests {
 
     #[test]
     fn test_error_code_category() {
-        assert_eq!(ErrorCode::UNEXPECTED_TOKEN.category(), ErrorCategory::Syntax);
+        assert_eq!(
+            ErrorCode::UNEXPECTED_TOKEN.category(),
+            ErrorCategory::Syntax
+        );
         assert_eq!(ErrorCode::TYPE_MISMATCH.category(), ErrorCategory::Type);
         assert_eq!(
             ErrorCode::INVARIANT_UNREACHABLE.category(),
@@ -262,10 +265,7 @@ mod tests {
             "set count = \"hello\"",
         )
         .with_suggestion("Use convert.to_int(value)");
-        assert_eq!(
-            err.suggestion.as_deref(),
-            Some("Use convert.to_int(value)")
-        );
+        assert_eq!(err.suggestion.as_deref(), Some("Use convert.to_int(value)"));
     }
 
     #[test]
@@ -285,10 +285,19 @@ mod tests {
         assert!(json.contains("\"source_line\""));
         assert!(json.contains("\"suggestion\""));
         // Verify JSON field names match compiler.md spec
-        assert!(json.contains("\"line\""), "JSON must use 'line' not 'start_line'");
-        assert!(json.contains("\"column\""), "JSON must use 'column' not 'start_col'");
+        assert!(
+            json.contains("\"line\""),
+            "JSON must use 'line' not 'start_line'"
+        );
+        assert!(
+            json.contains("\"column\""),
+            "JSON must use 'column' not 'start_col'"
+        );
         assert!(json.contains("\"end_line\""));
-        assert!(json.contains("\"end_column\""), "JSON must use 'end_column' not 'end_col'");
+        assert!(
+            json.contains("\"end_column\""),
+            "JSON must use 'end_column' not 'end_col'"
+        );
 
         // Round-trip
         let deserialized: PeplError = serde_json::from_str(&json).unwrap();

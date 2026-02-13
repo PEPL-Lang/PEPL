@@ -100,7 +100,8 @@ impl<'a> TypeChecker<'a> {
         // 2. Register state fields
         for field in &body.state.fields {
             let ty = self.resolve_type_annotation(&field.type_ann);
-            self.state_fields.insert(field.name.name.clone(), ty.clone());
+            self.state_fields
+                .insert(field.name.name.clone(), ty.clone());
             self.env.define(&field.name.name, ty);
         }
 
@@ -282,7 +283,11 @@ impl<'a> TypeChecker<'a> {
             ExprKind::Unary { operand, .. } => {
                 self.check_state_initializer(operand, field_name, _span);
             }
-            ExprKind::QualifiedCall { module, function, args } => {
+            ExprKind::QualifiedCall {
+                module,
+                function,
+                args,
+            } => {
                 // Pure stdlib calls are allowed
                 if self.capability_modules.contains_key(module.name.as_str()) {
                     self.error(
@@ -612,7 +617,11 @@ impl<'a> TypeChecker<'a> {
         let value_ty = self.check_expr(&set.value);
 
         // For nested set (set x.y = ...), resolve through the field chain
-        let mut target_ty = self.state_fields.get(target_name).cloned().unwrap_or(Type::Unknown);
+        let mut target_ty = self
+            .state_fields
+            .get(target_name)
+            .cloned()
+            .unwrap_or(Type::Unknown);
         for field_ident in set.target.iter().skip(1) {
             match &target_ty {
                 Type::Record(fields) => {
@@ -729,7 +738,9 @@ impl<'a> TypeChecker<'a> {
                     let first_ty = self.check_expr(&items[0]);
                     for item in items.iter().skip(1) {
                         let item_ty = self.check_expr(item);
-                        if !item_ty.is_assignable_to(&first_ty) && !first_ty.is_assignable_to(&item_ty) {
+                        if !item_ty.is_assignable_to(&first_ty)
+                            && !first_ty.is_assignable_to(&item_ty)
+                        {
                             self.error(
                                 ErrorCode::TYPE_MISMATCH,
                                 format!(
@@ -803,9 +814,7 @@ impl<'a> TypeChecker<'a> {
             }
 
             // ── Calls ──
-            ExprKind::Call { name, args } => {
-                self.check_unqualified_call(name, args, expr.span)
-            }
+            ExprKind::Call { name, args } => self.check_unqualified_call(name, args, expr.span),
 
             ExprKind::QualifiedCall {
                 module,
@@ -829,9 +838,7 @@ impl<'a> TypeChecker<'a> {
             }
 
             // ── Operators ──
-            ExprKind::Binary { left, op, right } => {
-                self.check_binary(left, *op, right, expr.span)
-            }
+            ExprKind::Binary { left, op, right } => self.check_binary(left, *op, right, expr.span),
 
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, expr.span),
 
@@ -1026,10 +1033,7 @@ impl<'a> TypeChecker<'a> {
             // Could be a constant (already checked above), otherwise unknown
             self.error(
                 ErrorCode::TYPE_MISMATCH,
-                format!(
-                    "unknown function '{}.{}'",
-                    module.name, function.name
-                ),
+                format!("unknown function '{}.{}'", module.name, function.name),
                 function.span,
             );
             for arg in args {
@@ -1038,7 +1042,12 @@ impl<'a> TypeChecker<'a> {
             return Type::Unknown;
         };
 
-        self.check_call_against_sig(&format!("{}.{}", module.name, function.name), &sig, args, span)
+        self.check_call_against_sig(
+            &format!("{}.{}", module.name, function.name),
+            &sig,
+            args,
+            span,
+        )
     }
 
     fn check_call_against_sig(
@@ -1214,7 +1223,11 @@ impl<'a> TypeChecker<'a> {
                 if !left_ty.is_numeric() {
                     self.error(
                         ErrorCode::TYPE_MISMATCH,
-                        format!("left operand of '{}' must be number, got {}", op_symbol(op), left_ty),
+                        format!(
+                            "left operand of '{}' must be number, got {}",
+                            op_symbol(op),
+                            left_ty
+                        ),
                         left.span,
                     );
                 }
@@ -1430,16 +1443,15 @@ impl<'a> TypeChecker<'a> {
                                     arm.span,
                                 );
                             }
-                            for (binding, (_, param_ty)) in bindings.iter().zip(variant.params.iter()) {
+                            for (binding, (_, param_ty)) in
+                                bindings.iter().zip(variant.params.iter())
+                            {
                                 self.env.define(&binding.name, param_ty.clone());
                             }
                         } else {
                             self.error(
                                 ErrorCode::TYPE_MISMATCH,
-                                format!(
-                                    "type {} has no variant '{}'",
-                                    subject_ty, name.name
-                                ),
+                                format!("type {} has no variant '{}'", subject_ty, name.name),
                                 name.span,
                             );
                         }
@@ -1477,10 +1489,7 @@ impl<'a> TypeChecker<'a> {
                             _ => {
                                 self.error(
                                     ErrorCode::TYPE_MISMATCH,
-                                    format!(
-                                        "type {} has no variant '{}'",
-                                        subject_ty, name.name
-                                    ),
+                                    format!("type {} has no variant '{}'", subject_ty, name.name),
                                     name.span,
                                 );
                             }
@@ -1522,11 +1531,17 @@ impl<'a> TypeChecker<'a> {
         // Exhaustiveness check
         if !has_wildcard {
             let all_variants = match &subject_ty {
-                Type::SumType { variants, .. } => {
-                    Some(variants.iter().map(|v| v.name.clone()).collect::<HashSet<_>>())
-                }
+                Type::SumType { variants, .. } => Some(
+                    variants
+                        .iter()
+                        .map(|v| v.name.clone())
+                        .collect::<HashSet<_>>(),
+                ),
                 Type::Named(name) => self.sum_types.get(name).map(|variants| {
-                    variants.iter().map(|v| v.name.clone()).collect::<HashSet<_>>()
+                    variants
+                        .iter()
+                        .map(|v| v.name.clone())
+                        .collect::<HashSet<_>>()
                 }),
                 Type::Result(_, _) => {
                     let mut s = HashSet::new();
@@ -1636,11 +1651,7 @@ impl<'a> TypeChecker<'a> {
     // ══════════════════════════════════════════════════════════════════════
 
     fn error(&mut self, code: ErrorCode, message: String, span: Span) {
-        let source_line = self
-            .source
-            .line(span.start_line)
-            .unwrap_or("")
-            .to_string();
+        let source_line = self.source.line(span.start_line).unwrap_or("").to_string();
         self.errors.push_error(pepl_types::PeplError::new(
             &self.source.name,
             code,

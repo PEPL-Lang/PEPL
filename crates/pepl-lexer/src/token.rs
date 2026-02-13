@@ -12,21 +12,64 @@ use std::fmt;
 /// one and emits a specific keyword token instead of [`TokenKind::Identifier`].
 pub const ALL_KEYWORDS: &[&str] = &[
     // Structural (12)
-    "space", "state", "action", "view", "set", "let", "if", "else", "for", "in",
-    "match", "return",
+    "space",
+    "state",
+    "action",
+    "view",
+    "set",
+    "let",
+    "if",
+    "else",
+    "for",
+    "in",
+    "match",
+    "return",
     // Declarations (9)
-    "invariant", "capabilities", "required", "optional", "credentials", "derived",
-    "tests", "test", "assert",
+    "invariant",
+    "capabilities",
+    "required",
+    "optional",
+    "credentials",
+    "derived",
+    "tests",
+    "test",
+    "assert",
     // Expressions (8)
-    "fn", "type", "true", "false", "nil", "not", "and", "or",
+    "fn",
+    "type",
+    "true",
+    "false",
+    "nil",
+    "not",
+    "and",
+    "or",
     // Type names (5)
-    "number", "string", "bool", "list", "color",
+    "number",
+    "string",
+    "bool",
+    "list",
+    "color",
     // Built-in types & game loop (5)
-    "update", "handleEvent", "Result", "Surface", "InputEvent",
+    "update",
+    "handleEvent",
+    "Result",
+    "Surface",
+    "InputEvent",
     // Module names (7)
-    "core", "math", "record", "time", "convert", "json", "timer",
+    "core",
+    "math",
+    "record",
+    "time",
+    "convert",
+    "json",
+    "timer",
     // Capability names (6)
-    "http", "storage", "location", "notifications", "clipboard", "share",
+    "http",
+    "storage",
+    "location",
+    "notifications",
+    "clipboard",
+    "share",
 ];
 
 // ─────────────────────────────────────────────────────────────────────
@@ -62,7 +105,6 @@ impl Token {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     // ── Literals ──────────────────────────────────────────────
-
     /// Numeric literal (integer or decimal): `42`, `3.14`
     NumberLit(f64),
     /// Complete string literal with no interpolation: `"hello"`
@@ -75,7 +117,6 @@ pub enum TokenKind {
     Nil,
 
     // ── String Interpolation ─────────────────────────────────
-
     /// Start of an interpolated string — text before the first `${`.
     /// Example: for `"hello ${name}"`, carries `"hello "`.
     StringStart(String),
@@ -89,12 +130,10 @@ pub enum TokenKind {
     InterpolationEnd,
 
     // ── Identifiers ──────────────────────────────────────────
-
     /// User-defined identifier: `my_var`, `add_item`
     Identifier(String),
 
     // ── Structural Keywords ──────────────────────────────────
-
     /// `space`
     Space,
     /// `state`
@@ -121,7 +160,6 @@ pub enum TokenKind {
     Return,
 
     // ── Declaration Keywords ─────────────────────────────────
-
     /// `invariant`
     Invariant,
     /// `capabilities`
@@ -142,7 +180,6 @@ pub enum TokenKind {
     Assert,
 
     // ── Expression Keywords ──────────────────────────────────
-
     /// `fn`
     Fn,
     /// `type`
@@ -155,7 +192,6 @@ pub enum TokenKind {
     Or,
 
     // ── Type-Name Keywords ───────────────────────────────────
-
     /// `number` (type name; also used in type annotations)
     KwNumber,
     /// `string` (type name and module prefix: `string.length()`)
@@ -168,7 +204,6 @@ pub enum TokenKind {
     KwColor,
 
     // ── Built-in Type & Game-Loop Keywords ───────────────────
-
     /// `update` (game-loop time-step handler)
     Update,
     /// `handleEvent` (game-loop input handler)
@@ -181,7 +216,6 @@ pub enum TokenKind {
     KwInputEvent,
 
     // ── Module Names (reserved) ──────────────────────────────
-
     /// `core`
     Core,
     /// `math`
@@ -198,7 +232,6 @@ pub enum TokenKind {
     Timer,
 
     // ── Capability Names (reserved) ──────────────────────────
-
     /// `http`
     Http,
     /// `storage`
@@ -213,7 +246,6 @@ pub enum TokenKind {
     Share,
 
     // ── Operators ────────────────────────────────────────────
-
     /// `+`
     Plus,
     /// `-`
@@ -244,7 +276,6 @@ pub enum TokenKind {
     DotDotDot,
 
     // ── Punctuation ──────────────────────────────────────────
-
     /// `(`
     LParen,
     /// `)`
@@ -273,7 +304,6 @@ pub enum TokenKind {
     Underscore,
 
     // ── Special ──────────────────────────────────────────────
-
     /// Newline (statement separator)
     Newline,
     /// End of file
@@ -538,8 +568,16 @@ mod tests {
     #[test]
     fn test_from_keyword_returns_none_for_identifiers() {
         let non_keywords = [
-            "foo", "bar", "my_var", "handleevent", "SPACE", "True",
-            "result", "surface", "inputevent", "with_responses",
+            "foo",
+            "bar",
+            "my_var",
+            "handleevent",
+            "SPACE",
+            "True",
+            "result",
+            "surface",
+            "inputevent",
+            "with_responses",
         ];
         for &name in &non_keywords {
             assert!(
@@ -642,9 +680,18 @@ mod tests {
         assert_eq!(TokenKind::from_keyword("timer"), Some(TokenKind::Timer));
         assert_eq!(TokenKind::from_keyword("http"), Some(TokenKind::Http));
         assert_eq!(TokenKind::from_keyword("storage"), Some(TokenKind::Storage));
-        assert_eq!(TokenKind::from_keyword("location"), Some(TokenKind::Location));
-        assert_eq!(TokenKind::from_keyword("notifications"), Some(TokenKind::Notifications));
-        assert_eq!(TokenKind::from_keyword("clipboard"), Some(TokenKind::Clipboard));
+        assert_eq!(
+            TokenKind::from_keyword("location"),
+            Some(TokenKind::Location)
+        );
+        assert_eq!(
+            TokenKind::from_keyword("notifications"),
+            Some(TokenKind::Notifications)
+        );
+        assert_eq!(
+            TokenKind::from_keyword("clipboard"),
+            Some(TokenKind::Clipboard)
+        );
         assert_eq!(TokenKind::from_keyword("share"), Some(TokenKind::Share));
     }
 
@@ -678,7 +725,7 @@ mod tests {
     #[test]
     fn test_display_literals() {
         assert_eq!(TokenKind::NumberLit(42.0).to_string(), "42");
-        assert_eq!(TokenKind::NumberLit(3.14).to_string(), "3.14");
+        assert_eq!(TokenKind::NumberLit(3.15).to_string(), "3.15");
         assert_eq!(
             TokenKind::StringLiteral("hello".into()).to_string(),
             "\"hello\""
@@ -692,10 +739,7 @@ mod tests {
     fn test_display_special() {
         assert_eq!(TokenKind::Newline.to_string(), "newline");
         assert_eq!(TokenKind::Eof.to_string(), "end of file");
-        assert_eq!(
-            TokenKind::Identifier("my_var".into()).to_string(),
-            "my_var"
-        );
+        assert_eq!(TokenKind::Identifier("my_var".into()).to_string(), "my_var");
     }
 
     #[test]

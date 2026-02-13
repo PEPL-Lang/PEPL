@@ -431,10 +431,7 @@ pub enum ExprKind {
     /// `my_var`, `count`
     Identifier(String),
     /// `func(args...)` — unqualified call
-    Call {
-        name: Ident,
-        args: Vec<Expr>,
-    },
+    Call { name: Ident, args: Vec<Expr> },
     /// `module.function(args...)` — qualified (stdlib) call
     QualifiedCall {
         module: Ident,
@@ -442,10 +439,7 @@ pub enum ExprKind {
         args: Vec<Expr>,
     },
     /// `expr.field`
-    FieldAccess {
-        object: Box<Expr>,
-        field: Ident,
-    },
+    FieldAccess { object: Box<Expr>, field: Ident },
     /// `expr.method(args...)`
     MethodCall {
         object: Box<Expr>,
@@ -461,17 +455,11 @@ pub enum ExprKind {
         right: Box<Expr>,
     },
     /// `-x`, `not x`
-    Unary {
-        op: UnaryOp,
-        operand: Box<Expr>,
-    },
+    Unary { op: UnaryOp, operand: Box<Expr> },
     /// `expr?` — Result unwrap
     ResultUnwrap(Box<Expr>),
     /// `a ?? b` — nil-coalescing
-    NilCoalesce {
-        left: Box<Expr>,
-        right: Box<Expr>,
-    },
+    NilCoalesce { left: Box<Expr>, right: Box<Expr> },
 
     // ── Control Flow ──
     /// `if cond { ... } [else { ... }]`
@@ -618,10 +606,7 @@ pub enum MatchArmBody {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern {
     /// `VariantName` or `VariantName(a, b, c)`
-    Variant {
-        name: Ident,
-        bindings: Vec<Ident>,
-    },
+    Variant { name: Ident, bindings: Vec<Ident> },
     /// `_` wildcard
     Wildcard(Span),
 }

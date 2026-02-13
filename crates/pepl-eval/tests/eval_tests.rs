@@ -278,11 +278,7 @@ space T {
     let r = si.dispatch("sub", vec![Value::Number(5.0)]).unwrap();
     assert!(!r.committed);
     assert!(r.invariant_error.is_some());
-    assert!(r
-        .invariant_error
-        .as_ref()
-        .unwrap()
-        .contains("positive"));
+    assert!(r.invariant_error.as_ref().unwrap().contains("positive"));
     // State should be rolled back
     assert_eq!(si.get_state("x"), Some(&Value::Number(1.0)));
 }

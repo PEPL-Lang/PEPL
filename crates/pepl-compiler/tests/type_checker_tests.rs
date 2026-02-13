@@ -51,7 +51,8 @@ fn assert_error(source: &str, expected_code: ErrorCode) {
 fn assert_n_errors(source: &str, n: usize) {
     let errors = check(source);
     assert_eq!(
-        errors.total_errors, n,
+        errors.total_errors,
+        n,
         "expected {} errors, got {}:\n{}",
         n,
         errors.total_errors,

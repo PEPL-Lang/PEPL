@@ -597,10 +597,7 @@ impl<'src> Parser<'src> {
         if params.len() > 8 {
             self.error_at_current(
                 ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
-                format!(
-                    "maximum 8 parameters per action, got {}",
-                    params.len()
-                ),
+                format!("maximum 8 parameters per action, got {}", params.len()),
             );
         }
 
