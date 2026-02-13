@@ -12,13 +12,17 @@ use std::collections::HashMap;
 
 use pepl_types::ast::*;
 use wasm_encoder::{
-    CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind, ExportSection,
-    Function, FunctionSection, GlobalSection, GlobalType, ImportSection, MemorySection, MemoryType,
-    Module, TypeSection, ValType,
+    CodeSection, ConstExpr, CustomSection, DataSection, ElementSection, Elements,
+    EntityType, ExportKind, ExportSection, Function, FunctionSection, GlobalSection,
+    GlobalType, ImportSection, Instruction, MemorySection, MemoryType, Module,
+    RefType, TableSection, TableType, TypeSection, ValType,
 };
 
 use crate::error::{CodegenError, CodegenResult};
-use crate::runtime::{self, DataSegmentTracker, RT_FUNC_COUNT};
+use crate::runtime::{
+    self, memarg, rt_func_idx, DataSegmentTracker, RT_FUNC_COUNT, RT_VAL_LIST_GET,
+    RT_VAL_RECORD_GET,
+};
 use crate::types::*;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -57,6 +61,19 @@ struct Compiler<'a> {
     variant_ids: HashMap<String, u32>,
     /// Functions registered by name → absolute WASM function index.
     function_table: HashMap<String, u32>,
+    /// Lambda bodies collected during codegen for deferred compilation.
+    /// Each entry: (params, body, captured_var_names)
+    lambda_bodies: Vec<LambdaBody>,
+    /// Number of space-level functions (init, dispatch, render, state, etc.)
+    num_space_funcs: u32,
+}
+
+/// A lambda body collected during expression codegen for deferred compilation.
+#[derive(Clone)]
+pub struct LambdaBody {
+    pub params: Vec<pepl_types::ast::Param>,
+    pub body: pepl_types::ast::Block,
+    pub captured: Vec<String>,
 }
 
 impl<'a> Compiler<'a> {
@@ -70,6 +87,8 @@ impl<'a> Compiler<'a> {
             view_names: Vec::new(),
             variant_ids: HashMap::new(),
             function_table: HashMap::new(),
+            lambda_bodies: Vec::new(),
+            num_space_funcs: 0,
         }
     }
 
@@ -91,6 +110,10 @@ impl<'a> Compiler<'a> {
         let (func_section, code_section) = self.emit_functions()?;
         module.section(&func_section);
 
+        // 3b. Table section (for call_indirect / lambda support)
+        let table = self.emit_table();
+        module.section(&table);
+
         // 4. Memory section
         let memory = self.emit_memory();
         module.section(&memory);
@@ -102,6 +125,10 @@ impl<'a> Compiler<'a> {
         // 6. Export section
         let exports = self.emit_exports();
         module.section(&exports);
+
+        // 6b. Element section (populate table with lambda function refs)
+        let elements = self.emit_elements();
+        module.section(&elements);
 
         // 7. Code section (must come after function/memory/global/export)
         module.section(&code_section);
@@ -117,8 +144,9 @@ impl<'a> Compiler<'a> {
         let wasm_bytes = module.finish();
 
         // 10. Validate
-        wasmparser::validate(&wasm_bytes)
-            .map_err(|e| CodegenError::ValidationFailed(format!("{e}")))?;
+        wasmparser::validate(&wasm_bytes).map_err(|e| {
+            CodegenError::ValidationFailed(format!("{e}"))
+        })?;
 
         Ok(wasm_bytes)
     }
@@ -176,9 +204,7 @@ impl<'a> Compiler<'a> {
         // TYPE_I32_I32: (i32) -> i32
         types.ty().function(vec![ValType::I32], vec![ValType::I32]);
         // TYPE_I32X2_VOID: (i32, i32) -> ()
-        types
-            .ty()
-            .function(vec![ValType::I32, ValType::I32], vec![]);
+        types.ty().function(vec![ValType::I32, ValType::I32], vec![]);
         // TYPE_I32X2_I32: (i32, i32) -> i32
         types
             .ty()
@@ -396,6 +422,10 @@ impl<'a> Compiler<'a> {
             self.data.nan_len,
         ));
 
+        // RT_MEMCMP (i32, i32, i32) -> i32
+        func_section.function(TYPE_I32X3_I32);
+        code_section.function(&runtime::emit_memcmp());
+
         // ── Space-level functions ────────────────────────────────────────
         let body = &self.program.space.body;
 
@@ -451,7 +481,8 @@ impl<'a> Compiler<'a> {
         // Conditionally: update(dt_ptr: i32)
         let mut next_idx = get_state_idx + 1;
         if let Some(update_decl) = &body.update {
-            self.function_table.insert("update".to_string(), next_idx);
+            self.function_table
+                .insert("update".to_string(), next_idx);
             func_section.function(TYPE_I32_VOID);
             let mut update_scratch = Function::new(vec![]);
             let mut update_ctx = self.make_func_context(1);
@@ -481,7 +512,88 @@ impl<'a> Compiler<'a> {
             )?;
             self.merge_user_data(&he_ctx);
             code_section.function(&Self::finalize_function(he_scratch, &he_ctx));
-            // next_idx += 1; // not needed — no more functions after this
+            next_idx += 1;
+        }
+
+        // Track how many space-level functions we emitted
+        self.num_space_funcs = next_idx - (IMPORT_COUNT + RT_FUNC_COUNT);
+
+        // invoke_lambda(lambda_ptr: i32, arg_ptr: i32) -> i32
+        // This function reads the LAMBDA value, extracts table index + env,
+        // and does call_indirect to execute the lambda body.
+        let invoke_lambda_idx = next_idx;
+        func_section.function(TYPE_I32X2_I32);
+        let mut invoke_func = Function::new(vec![
+            (1, ValType::I32), // local 2: table_idx (from lambda.w1)
+            (1, ValType::I32), // local 3: env_ptr   (from lambda.w2)
+        ]);
+        // table_idx = lambda_ptr.w1
+        invoke_func.instruction(&Instruction::LocalGet(0));
+        invoke_func.instruction(&Instruction::I32Load(memarg(4, 2)));
+        invoke_func.instruction(&Instruction::LocalSet(2));
+        // env_ptr = lambda_ptr.w2
+        invoke_func.instruction(&Instruction::LocalGet(0));
+        invoke_func.instruction(&Instruction::I32Load(memarg(8, 2)));
+        invoke_func.instruction(&Instruction::LocalSet(3));
+        // call_indirect(env_ptr, arg_ptr, table_idx)
+        // Function type for lambda: (env_ptr: i32, arg_ptr: i32) -> i32 = TYPE_I32X2_I32
+        invoke_func.instruction(&Instruction::LocalGet(3)); // env_ptr
+        invoke_func.instruction(&Instruction::LocalGet(1)); // arg_ptr
+        invoke_func.instruction(&Instruction::LocalGet(2)); // table_idx
+        invoke_func.instruction(&Instruction::CallIndirect { type_index: TYPE_I32X2_I32, table_index: 0 });
+        invoke_func.instruction(&Instruction::End);
+        code_section.function(&invoke_func);
+        self.function_table
+            .insert("invoke_lambda".to_string(), invoke_lambda_idx);
+        next_idx += 1;
+
+        // Now compile deferred lambda bodies
+        // Each lambda has signature: (env_ptr: i32, arg_ptr: i32) -> i32
+        let lambda_bodies = self.lambda_bodies.clone();
+        for lb in &lambda_bodies {
+            func_section.function(TYPE_I32X2_I32);
+            let mut lam_scratch = Function::new(vec![]);
+            // Lambda function params: local 0 = env_ptr, local 1 = arg_ptr
+            let mut lam_ctx = self.make_func_context(2);
+
+            // Bind captured variables from env (a RECORD at local 0)
+            for cap_name in &lb.captured {
+                let cap_local = lam_ctx.alloc_local(ValType::I32);
+                let (cap_key_ptr, cap_key_len) = lam_ctx.intern_string(cap_name);
+                lam_scratch.instruction(&Instruction::LocalGet(0)); // env_ptr
+                lam_scratch.instruction(&Instruction::I32Const(cap_key_ptr as i32));
+                lam_scratch.instruction(&Instruction::I32Const(cap_key_len as i32));
+                lam_scratch.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD_GET)));
+                lam_scratch.instruction(&Instruction::LocalSet(cap_local));
+                lam_ctx.push_local(cap_name, cap_local);
+            }
+
+            // Bind lambda parameters from arg_ptr
+            // For single-param lambda: arg_ptr IS the argument value
+            // For multi-param: arg_ptr is a LIST, unpack via RT_VAL_LIST_GET
+            if lb.params.len() == 1 {
+                let param_local = lam_ctx.alloc_local(ValType::I32);
+                lam_scratch.instruction(&Instruction::LocalGet(1)); // arg_ptr
+                lam_scratch.instruction(&Instruction::LocalSet(param_local));
+                lam_ctx.push_local(&lb.params[0].name.name, param_local);
+            } else {
+                for (pi, param) in lb.params.iter().enumerate() {
+                    let param_local = lam_ctx.alloc_local(ValType::I32);
+                    lam_scratch.instruction(&Instruction::LocalGet(1)); // args list
+                    lam_scratch.instruction(&Instruction::I32Const(pi as i32));
+                    lam_scratch.instruction(&Instruction::Call(rt_func_idx(RT_VAL_LIST_GET)));
+                    lam_scratch.instruction(&Instruction::LocalSet(param_local));
+                    lam_ctx.push_local(&param.name.name, param_local);
+                }
+            }
+
+            // Emit lambda body (block of statements → last expr value)
+            crate::expr::emit_block_as_expr(&lb.body, &mut lam_ctx, &mut lam_scratch)?;
+            lam_scratch.instruction(&Instruction::End);
+
+            self.merge_user_data(&lam_ctx);
+            code_section.function(&Self::finalize_function(lam_scratch, &lam_ctx));
+            next_idx += 1;
         }
 
         Ok((func_section, code_section))
@@ -516,6 +628,19 @@ impl<'a> Compiler<'a> {
             );
         }
 
+        // Always export invoke_lambda for host callback support
+        if self.function_table.contains_key("invoke_lambda") {
+            exports.export(
+                "invoke_lambda",
+                ExportKind::Func,
+                *self.function_table.get("invoke_lambda").unwrap(),
+            );
+        }
+        // Export the function table for call_indirect
+        if !self.lambda_bodies.is_empty() {
+            exports.export("__indirect_function_table", ExportKind::Table, 0);
+        }
+
         exports
     }
 
@@ -527,6 +652,43 @@ impl<'a> Compiler<'a> {
         all_data.extend_from_slice(&self.user_data);
         data_sec.active(0, &ConstExpr::i32_const(0), all_data);
         data_sec
+    }
+
+    // ── Table section ────────────────────────────────────────────────────
+
+    fn emit_table(&self) -> TableSection {
+        let mut table_sec = TableSection::new();
+        // Always add a funcref table (minimum size = max(1, lambda count))
+        // Even if no lambdas, the table is needed for call_indirect validation
+        let table_size = std::cmp::max(1, self.lambda_bodies.len() as u64);
+        table_sec.table(TableType {
+            element_type: RefType::FUNCREF,
+            minimum: table_size,
+            maximum: Some(table_size),
+            table64: false,
+            shared: false,
+        });
+        table_sec
+    }
+
+    // ── Element section ──────────────────────────────────────────────────
+
+    fn emit_elements(&self) -> ElementSection {
+        let mut elem_sec = ElementSection::new();
+        if !self.lambda_bodies.is_empty() {
+            // Populate table at offset 0 with lambda function indices
+            let lambda_base =
+                IMPORT_COUNT + RT_FUNC_COUNT + self.num_space_funcs + 1; // +1 for invoke_lambda
+            let func_indices: Vec<u32> = (0..self.lambda_bodies.len() as u32)
+                .map(|i| lambda_base + i)
+                .collect();
+            elem_sec.active(
+                Some(0),
+                &ConstExpr::i32_const(0),
+                Elements::Functions(std::borrow::Cow::Owned(func_indices)),
+            );
+        }
+        elem_sec
     }
 
     // ── Custom section ───────────────────────────────────────────────────
@@ -552,6 +714,11 @@ impl<'a> Compiler<'a> {
             function_table: self.function_table.clone(),
             data: self.data.clone_tracker(),
             user_data: Vec::new(),
+            string_cache: HashMap::new(),
+            lambda_bodies: Vec::new(),
+            lambda_base_idx: IMPORT_COUNT + RT_FUNC_COUNT + self.num_space_funcs
+                + 1 // +1 for invoke_lambda
+                + self.lambda_bodies.len() as u32,
         }
     }
 
@@ -560,6 +727,8 @@ impl<'a> Compiler<'a> {
         self.user_data.extend_from_slice(&ctx.user_data);
         // Update data tracker offset
         self.data.next_offset = ctx.data.next_offset;
+        // Collect lambda bodies registered during this function's codegen
+        self.lambda_bodies.extend(ctx.lambda_bodies.clone());
     }
 
     /// Finalize a scratch function: rebuild with correct local declarations.
@@ -602,6 +771,12 @@ pub struct FuncContext {
     pub data: DataSegmentTrackerClone,
     /// User string data accumulated during codegen.
     pub user_data: Vec<u8>,
+    /// String deduplication cache: content → (offset, length).
+    pub string_cache: HashMap<String, (u32, u32)>,
+    /// Lambda bodies collected during codegen (deferred compilation).
+    pub lambda_bodies: Vec<LambdaBody>,
+    /// Base function index for lambda functions in the WASM table.
+    pub lambda_base_idx: u32,
 }
 
 impl FuncContext {
@@ -656,10 +831,33 @@ impl FuncContext {
     }
 
     /// Intern a string constant, returning (offset, length).
+    /// Deduplicates: if the same string was already interned, reuses it.
     pub fn intern_string(&mut self, s: &str) -> (u32, u32) {
+        if let Some(&cached) = self.string_cache.get(s) {
+            return cached;
+        }
         let (ptr, len) = self.data.intern_string(s);
         self.user_data.extend_from_slice(s.as_bytes());
+        self.string_cache.insert(s.to_string(), (ptr, len));
         (ptr, len)
+    }
+
+    /// Register a lambda body for deferred compilation.
+    /// Returns the WASM function index for this lambda.
+    pub fn register_lambda(
+        &mut self,
+        params: Vec<pepl_types::ast::Param>,
+        body: pepl_types::ast::Block,
+        captured: Vec<String>,
+    ) -> u32 {
+        let lambda_idx = self.lambda_bodies.len() as u32;
+        self.lambda_bodies.push(LambdaBody {
+            params,
+            body,
+            captured,
+        });
+        // Function index = lambda_base_idx + lambda_idx
+        self.lambda_base_idx + lambda_idx
     }
 
     /// Resolve a qualified call to (module_id, function_id).
@@ -751,6 +949,8 @@ pub struct DataSegmentTrackerClone {
     pub assert_failed_len: u32,
     pub invariant_failed_ptr: u32,
     pub invariant_failed_len: u32,
+    pub unwrap_failed_ptr: u32,
+    pub unwrap_failed_len: u32,
     pub next_offset: u32,
 }
 
@@ -786,6 +986,8 @@ impl DataSegmentTracker {
             assert_failed_len: self.assert_failed_len,
             invariant_failed_ptr: self.invariant_failed_ptr,
             invariant_failed_len: self.invariant_failed_len,
+            unwrap_failed_ptr: self.unwrap_failed_ptr,
+            unwrap_failed_len: self.unwrap_failed_len,
             next_offset: self.next_offset,
         }
     }

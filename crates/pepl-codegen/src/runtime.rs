@@ -113,8 +113,12 @@ pub const RT_VAL_LIST_GET: u32 = 28;
 /// NaN check + trap: `check_nan(val_ptr: i32) -> i32` — traps if NaN, returns val_ptr
 pub const RT_CHECK_NAN: u32 = 29;
 
+/// Byte-by-byte memory comparison: `memcmp(ptr_a: i32, ptr_b: i32, len: i32) -> i32`
+/// Returns 1 if all bytes match, 0 otherwise.
+pub const RT_MEMCMP: u32 = 30;
+
 /// Total number of runtime helper functions.
-pub const RT_FUNC_COUNT: u32 = 30;
+pub const RT_FUNC_COUNT: u32 = 31;
 
 // ── Absolute function indices ────────────────────────────────────────────────
 
@@ -134,7 +138,7 @@ pub const fn rt_func_idx(rt_offset: u32) -> u32 {
 /// If we exceed memory, call `memory.grow`.
 pub fn emit_alloc() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local 1: old_ptr
-                                                        // old_ptr = heap_ptr
+    // old_ptr = heap_ptr
     f.instruction(&Instruction::GlobalGet(GLOBAL_HEAP_PTR));
     f.instruction(&Instruction::LocalSet(1));
     // heap_ptr += size
@@ -152,7 +156,7 @@ pub fn emit_alloc() -> Function {
 /// Emit `val_nil() -> i32`.
 pub fn emit_val_nil() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-                                                        // ptr = alloc(VALUE_SIZE)
+    // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(0));
@@ -172,7 +176,7 @@ pub fn emit_val_nil() -> Function {
 /// signatures.  The function reassembles and stores the f64.
 pub fn emit_val_number() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-                                                        // ptr = alloc(VALUE_SIZE)
+    // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(2));
@@ -197,7 +201,7 @@ pub fn emit_val_number() -> Function {
 /// Emit `val_bool(b: i32) -> i32`.
 pub fn emit_val_bool() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-                                                        // ptr = alloc(VALUE_SIZE)
+    // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(1));
@@ -218,7 +222,7 @@ pub fn emit_val_bool() -> Function {
 /// Emit `val_string(data_ptr: i32, len: i32) -> i32`.
 pub fn emit_val_string() -> Function {
     let mut f = Function::new(vec![(1, ValType::I32)]); // local: ptr
-                                                        // ptr = alloc(VALUE_SIZE)
+    // ptr = alloc(VALUE_SIZE)
     f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
     f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
     f.instruction(&Instruction::LocalSet(2));
@@ -433,26 +437,27 @@ pub fn emit_val_eq() -> Function {
     f.instruction(&Instruction::LocalSet(4));
     f.instruction(&Instruction::Else);
 
-    // STRING: compare lengths first, then memcmp data
-    // (simplified: compare w1 and w2 which are ptr+len)
+    // STRING: compare lengths first, then byte-by-byte memcmp
     f.instruction(&Instruction::LocalGet(2));
     f.instruction(&Instruction::I32Const(TAG_STRING));
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Empty));
-    // Compare lengths
+    // Compare lengths (w2 = byte-length)
     f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::I32Load(memarg(8, 2)));
     f.instruction(&Instruction::LocalGet(1));
     f.instruction(&Instruction::I32Load(memarg(8, 2)));
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Empty));
-    // Same length — for now compare data pointers (TODO: byte-by-byte compare)
-    // If static strings, same content → same ptr. Good enough for v1.
+    // Same length — byte-by-byte comparison via RT_MEMCMP
+    // memcmp(a.data_ptr, b.data_ptr, a.len) → 0 or 1
     f.instruction(&Instruction::LocalGet(0));
-    f.instruction(&Instruction::I32Load(memarg(4, 2)));
+    f.instruction(&Instruction::I32Load(memarg(4, 2))); // a.data_ptr
     f.instruction(&Instruction::LocalGet(1));
-    f.instruction(&Instruction::I32Load(memarg(4, 2)));
-    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::I32Load(memarg(4, 2))); // b.data_ptr
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::I32Load(memarg(8, 2))); // a.len
+    f.instruction(&Instruction::Call(rt_func_idx(RT_MEMCMP)));
     f.instruction(&Instruction::LocalSet(4));
     f.instruction(&Instruction::Else);
     f.instruction(&Instruction::I32Const(0));
@@ -490,11 +495,21 @@ pub fn emit_val_eq() -> Function {
 
 /// Emit `val_to_string(ptr: i32) -> i32` — converts any value to a STRING value.
 ///
-/// Simplified v1: numbers → "number", bools → "true"/"false", nil → "nil",
-/// strings pass through.
+/// v1: strings pass through, bools → "true"/"false", nil → "nil",
+/// numbers (integer-valued) → decimal string, others → "[value]".
 pub fn emit_val_to_string(data: &DataSegmentTracker) -> Function {
+    // Locals: 0=ptr, 1=tag, 2=f64_val, 3=is_neg, 4=abs_val(i64), 5=buf_ptr,
+    //         6=write_pos, 7=digit_count, 8=start, 9=result
     let mut f = Function::new(vec![
-        (1, ValType::I32), // local 1: tag
+        (1, ValType::I32),  // local 1: tag
+        (1, ValType::F64),  // local 2: f64_val
+        (1, ValType::I32),  // local 3: is_neg
+        (1, ValType::I64),  // local 4: abs_val
+        (1, ValType::I32),  // local 5: buf_ptr
+        (1, ValType::I32),  // local 6: write_pos
+        (1, ValType::I32),  // local 7: digit_count
+        (1, ValType::I32),  // local 8: start_pos
+        (1, ValType::I32),  // local 9: result_ptr
     ]);
     f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::I32Load(memarg(0, 2)));
@@ -506,6 +521,141 @@ pub fn emit_val_to_string(data: &DataSegmentTracker) -> Function {
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
     f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::Else);
+
+    // NUMBER → integer string conversion
+    f.instruction(&Instruction::LocalGet(1));
+    f.instruction(&Instruction::I32Const(TAG_NUMBER));
+    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+
+    // Load the f64 value (stored as two i32 words at offset 4)
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::F64Load(memarg(4, 2)));
+    f.instruction(&Instruction::LocalSet(2));
+
+    // Check: is it a finite integer? (floor == value && not NaN/Inf)
+    // f64.floor(val) == val
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::F64Floor);
+    f.instruction(&Instruction::F64Eq);
+    // Also: val == val (not NaN)
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::F64Eq);
+    f.instruction(&Instruction::I32And);
+    // Also: abs(val) < 2^53 (safe integer range)
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::F64Abs);
+    f.instruction(&Instruction::F64Const(9007199254740992.0)); // 2^53
+    f.instruction(&Instruction::F64Lt);
+    f.instruction(&Instruction::I32And);
+
+    f.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+
+    // Integer path: convert f64 → digits string
+    // Check if negative
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::F64Const(0.0));
+    f.instruction(&Instruction::F64Lt);
+    f.instruction(&Instruction::LocalSet(3)); // is_neg
+
+    // abs_val = i64.trunc_f64_s(abs(val))
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::F64Abs);
+    f.instruction(&Instruction::I64TruncF64S);
+    f.instruction(&Instruction::LocalSet(4)); // abs_val
+
+    // Allocate a 20-byte scratch buffer for digits (max i64 decimal = 19 chars + sign)
+    f.instruction(&Instruction::I32Const(20));
+    f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+    f.instruction(&Instruction::LocalSet(5)); // buf_ptr
+
+    // write_pos starts at end of buffer (we write digits right-to-left)
+    f.instruction(&Instruction::LocalGet(5));
+    f.instruction(&Instruction::I32Const(20));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(6)); // write_pos
+
+    // Handle zero specially
+    f.instruction(&Instruction::LocalGet(4));
+    f.instruction(&Instruction::I64Eqz);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    // write '0'
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::I32Sub);
+    f.instruction(&Instruction::LocalSet(6));
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Const(48)); // ASCII '0'
+    f.instruction(&Instruction::I32Store8(memarg(0, 0)));
+    f.instruction(&Instruction::Else);
+
+    // Digit extraction loop: while abs_val > 0
+    f.instruction(&Instruction::Block(BlockType::Empty));
+    f.instruction(&Instruction::Loop(BlockType::Empty));
+    f.instruction(&Instruction::LocalGet(4));
+    f.instruction(&Instruction::I64Eqz);
+    f.instruction(&Instruction::BrIf(1)); // break if zero
+
+    // write_pos -= 1
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::I32Sub);
+    f.instruction(&Instruction::LocalSet(6));
+
+    // digit = abs_val % 10
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::LocalGet(4));
+    f.instruction(&Instruction::I64Const(10));
+    f.instruction(&Instruction::I64RemU);
+    f.instruction(&Instruction::I32WrapI64);
+    f.instruction(&Instruction::I32Const(48)); // ASCII '0'
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::I32Store8(memarg(0, 0)));
+
+    // abs_val /= 10
+    f.instruction(&Instruction::LocalGet(4));
+    f.instruction(&Instruction::I64Const(10));
+    f.instruction(&Instruction::I64DivU);
+    f.instruction(&Instruction::LocalSet(4));
+
+    f.instruction(&Instruction::Br(0)); // continue loop
+    f.instruction(&Instruction::End); // end loop
+    f.instruction(&Instruction::End); // end block
+
+    f.instruction(&Instruction::End); // end zero check
+
+    // If negative, prepend '-'
+    f.instruction(&Instruction::LocalGet(3));
+    f.instruction(&Instruction::If(BlockType::Empty));
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::I32Sub);
+    f.instruction(&Instruction::LocalSet(6));
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Const(45)); // ASCII '-'
+    f.instruction(&Instruction::I32Store8(memarg(0, 0)));
+    f.instruction(&Instruction::End);
+
+    // Create STRING value from write_pos..buf_ptr+20
+    // data_ptr = write_pos, len = (buf_ptr + 20) - write_pos
+    f.instruction(&Instruction::LocalGet(6));  // data_ptr
+    f.instruction(&Instruction::LocalGet(5));
+    f.instruction(&Instruction::I32Const(20));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalGet(6));
+    f.instruction(&Instruction::I32Sub);       // len
+    f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_STRING)));
+
+    f.instruction(&Instruction::Else);
+    // Non-integer number → "[value]" placeholder
+    f.instruction(&Instruction::I32Const(data.value_ptr as i32));
+    f.instruction(&Instruction::I32Const(data.value_len as i32));
+    f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_STRING)));
+    f.instruction(&Instruction::End); // end integer check
+
     f.instruction(&Instruction::Else);
 
     // BOOL
@@ -545,6 +695,7 @@ pub fn emit_val_to_string(data: &DataSegmentTracker) -> Function {
 
     f.instruction(&Instruction::End); // nil else
     f.instruction(&Instruction::End); // bool else
+    f.instruction(&Instruction::End); // number else
     f.instruction(&Instruction::End); // string if/else
 
     f.instruction(&Instruction::End);
@@ -582,26 +733,20 @@ pub fn emit_val_string_concat() -> Function {
     f.instruction(&Instruction::LocalSet(4));
 
     // memory.copy(new_buf, a.w1, len_a)
-    f.instruction(&Instruction::LocalGet(4)); // dst
+    f.instruction(&Instruction::LocalGet(4));        // dst
     f.instruction(&Instruction::LocalGet(0));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // src = a.w1
-    f.instruction(&Instruction::LocalGet(2)); // len_a
-    f.instruction(&Instruction::MemoryCopy {
-        src_mem: 0,
-        dst_mem: 0,
-    });
+    f.instruction(&Instruction::LocalGet(2));        // len_a
+    f.instruction(&Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 });
 
     // memory.copy(new_buf + len_a, b.w1, len_b)
     f.instruction(&Instruction::LocalGet(4));
     f.instruction(&Instruction::LocalGet(2));
-    f.instruction(&Instruction::I32Add); // dst = new_buf + len_a
+    f.instruction(&Instruction::I32Add);             // dst = new_buf + len_a
     f.instruction(&Instruction::LocalGet(1));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // src = b.w1
-    f.instruction(&Instruction::LocalGet(3)); // len_b
-    f.instruction(&Instruction::MemoryCopy {
-        src_mem: 0,
-        dst_mem: 0,
-    });
+    f.instruction(&Instruction::LocalGet(3));        // len_b
+    f.instruction(&Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 });
 
     // return val_string(new_buf, total_len)
     f.instruction(&Instruction::LocalGet(4));
@@ -663,9 +808,9 @@ pub fn emit_val_mul() -> Function {
 /// Emit `val_div` — with division-by-zero and NaN trap guards.
 pub fn emit_val_div(trap_msg_ptr: u32, trap_msg_len: u32) -> Function {
     let mut f = Function::new(vec![
-        (1, ValType::I32), // local 2: result ptr
-        (1, ValType::F64), // local 3: divisor
-        (1, ValType::F64), // local 4: quotient
+        (1, ValType::I32),  // local 2: result ptr
+        (1, ValType::F64),  // local 3: divisor
+        (1, ValType::F64),  // local 4: quotient
     ]);
 
     // Load divisor
@@ -869,14 +1014,15 @@ pub fn emit_val_record_get() -> Function {
     // Compare key length first
     f.instruction(&Instruction::LocalGet(6));
     f.instruction(&Instruction::I32Load(memarg(4, 2))); // entry key_len
-    f.instruction(&Instruction::LocalGet(2)); // target key_len
+    f.instruction(&Instruction::LocalGet(2));            // target key_len
     f.instruction(&Instruction::I32Eq);
     f.instruction(&Instruction::If(BlockType::Empty));
-    // Lengths match — compare key data pointers (TODO: proper memcmp)
+    // Lengths match — byte-by-byte memcmp on key data
     f.instruction(&Instruction::LocalGet(6));
     f.instruction(&Instruction::I32Load(memarg(0, 2))); // entry key_offset
-    f.instruction(&Instruction::LocalGet(1)); // target key_ptr
-    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::LocalGet(1));            // target key_ptr
+    f.instruction(&Instruction::LocalGet(2));            // key_len
+    f.instruction(&Instruction::Call(rt_func_idx(RT_MEMCMP)));
     f.instruction(&Instruction::If(BlockType::Empty));
     // Found! result = entry.value_ptr
     f.instruction(&Instruction::LocalGet(6));
@@ -976,12 +1122,90 @@ pub fn emit_check_nan(trap_msg_ptr: u32, trap_msg_len: u32) -> Function {
     f
 }
 
+/// Emit `memcmp(ptr_a: i32, ptr_b: i32, len: i32) -> i32` — byte-by-byte comparison.
+///
+/// Returns 1 if all `len` bytes at `ptr_a` and `ptr_b` are identical, 0 otherwise.
+/// Used by `val_eq` for string content comparison and `val_record_get` for key lookup.
+pub fn emit_memcmp() -> Function {
+    let mut f = Function::new(vec![
+        (1, ValType::I32), // local 3: loop counter (i)
+    ]);
+    // params: 0=ptr_a, 1=ptr_b, 2=len
+
+    // If len == 0 → return 1 (empty strings are equal)
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::I32Eqz);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::Return);
+    f.instruction(&Instruction::End);
+
+    // If pointers are equal → return 1 (same memory, trivially equal)
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::LocalGet(1));
+    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::Return);
+    f.instruction(&Instruction::End);
+
+    // i = 0
+    f.instruction(&Instruction::I32Const(0));
+    f.instruction(&Instruction::LocalSet(3));
+
+    // Loop: compare byte at ptr_a+i vs ptr_b+i
+    f.instruction(&Instruction::Block(BlockType::Empty)); // block (break target)
+    f.instruction(&Instruction::Loop(BlockType::Empty));   // loop
+
+    // if i >= len → break (all matched → return 1)
+    f.instruction(&Instruction::LocalGet(3));
+    f.instruction(&Instruction::LocalGet(2));
+    f.instruction(&Instruction::I32GeU);
+    f.instruction(&Instruction::BrIf(1)); // br outer block
+
+    // load byte at ptr_a + i
+    f.instruction(&Instruction::LocalGet(0));
+    f.instruction(&Instruction::LocalGet(3));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::I32Load8U(memarg(0, 0)));
+
+    // load byte at ptr_b + i
+    f.instruction(&Instruction::LocalGet(1));
+    f.instruction(&Instruction::LocalGet(3));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::I32Load8U(memarg(0, 0)));
+
+    // if bytes differ → return 0
+    f.instruction(&Instruction::I32Ne);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    f.instruction(&Instruction::I32Const(0));
+    f.instruction(&Instruction::Return);
+    f.instruction(&Instruction::End);
+
+    // i += 1
+    f.instruction(&Instruction::LocalGet(3));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(3));
+
+    // continue loop
+    f.instruction(&Instruction::Br(0));
+
+    f.instruction(&Instruction::End); // end loop
+    f.instruction(&Instruction::End); // end block
+
+    // Reached here → all bytes matched
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::End);
+    f
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Helpers
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// Create a `MemArg` with the given offset and alignment power.
-fn memarg(offset: u64, align: u32) -> wasm_encoder::MemArg {
+pub(crate) fn memarg(offset: u64, align: u32) -> wasm_encoder::MemArg {
     wasm_encoder::MemArg {
         offset,
         align,
@@ -1012,6 +1236,8 @@ pub struct DataSegmentTracker {
     pub assert_failed_len: u32,
     pub invariant_failed_ptr: u32,
     pub invariant_failed_len: u32,
+    pub unwrap_failed_ptr: u32,
+    pub unwrap_failed_len: u32,
     /// Next free offset in the data segment.
     pub next_offset: u32,
 }
@@ -1063,6 +1289,10 @@ impl DataSegmentTracker {
         let invariant_failed_len = 18u32; // "invariant violated"
         offset += invariant_failed_len;
 
+        let unwrap_failed_ptr = offset;
+        let unwrap_failed_len = 14u32; // "unwrap on Err"
+        offset += unwrap_failed_len;
+
         Self {
             true_ptr,
             true_len,
@@ -1082,6 +1312,8 @@ impl DataSegmentTracker {
             assert_failed_len,
             invariant_failed_ptr,
             invariant_failed_len,
+            unwrap_failed_ptr,
+            unwrap_failed_len,
             next_offset: offset,
         }
     }
@@ -1098,6 +1330,7 @@ impl DataSegmentTracker {
         buf.extend_from_slice(b"NaN result");
         buf.extend_from_slice(b"assertion failed");
         buf.extend_from_slice(b"invariant violated");
+        buf.extend_from_slice(b"unwrap on Err!");
         buf
     }
 

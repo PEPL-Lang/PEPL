@@ -36,7 +36,9 @@ pub fn emit_expr(expr: &Expr, ctx: &mut FuncContext, f: &mut Function) -> Codege
             function,
             args,
         } => emit_qualified_call(&module.name, &function.name, args, ctx, f),
-        ExprKind::FieldAccess { object, field } => emit_field_access(object, &field.name, ctx, f),
+        ExprKind::FieldAccess { object, field } => {
+            emit_field_access(object, &field.name, ctx, f)
+        }
         ExprKind::MethodCall {
             object,
             method,
@@ -55,10 +57,8 @@ pub fn emit_expr(expr: &Expr, ctx: &mut FuncContext, f: &mut Function) -> Codege
         ExprKind::Match(match_expr) => emit_match_expr(match_expr, ctx, f),
 
         // ── Lambda ───────────────────────────────────────────────────────
-        ExprKind::Lambda(_lambda) => {
-            // Lambda closures are lowered in a later phase.
-            // For now emit nil as a placeholder.
-            emit_nil_lit(f)
+        ExprKind::Lambda(lambda) => {
+            emit_lambda(lambda, ctx, f)
         }
 
         // ── Grouping ─────────────────────────────────────────────────────
@@ -105,7 +105,93 @@ fn emit_nil_lit(f: &mut Function) -> CodegenResult<()> {
     Ok(())
 }
 
-fn emit_list_lit(elems: &[Expr], ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
+fn emit_lambda(
+    lambda: &LambdaExpr,
+    ctx: &mut FuncContext,
+    f: &mut Function,
+) -> CodegenResult<()> {
+    // Determine captured variables: all locals currently in scope
+    // that are NOT lambda parameters.
+    let param_names: Vec<String> = lambda.params.iter().map(|p| p.name.name.clone()).collect();
+    let mut captured: Vec<String> = ctx
+        .local_names
+        .keys()
+        .filter(|name| !param_names.contains(name))
+        .cloned()
+        .collect();
+    captured.sort(); // deterministic ordering
+
+    // Build closure environment record from captured variables
+    let env_local = ctx.alloc_local(ValType::I32);
+    if captured.is_empty() {
+        // No captures — env is nil
+        f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_NIL)));
+        f.instruction(&Instruction::LocalSet(env_local));
+    } else {
+        // Build a RECORD with captured variable values
+        let cap_entries = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::I32Const((captured.len() * 12) as i32));
+        f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+        f.instruction(&Instruction::LocalSet(cap_entries));
+
+        for (ci, cap_name) in captured.iter().enumerate() {
+            let (cap_key_ptr, cap_key_len) = ctx.intern_string(cap_name);
+            let cap_val_local = ctx.get_local(cap_name).unwrap_or(0);
+            let base = (ci * 12) as u64;
+            // key_offset
+            f.instruction(&Instruction::LocalGet(cap_entries));
+            f.instruction(&Instruction::I32Const(cap_key_ptr as i32));
+            f.instruction(&Instruction::I32Store(memarg(base, 2)));
+            // key_len
+            f.instruction(&Instruction::LocalGet(cap_entries));
+            f.instruction(&Instruction::I32Const(cap_key_len as i32));
+            f.instruction(&Instruction::I32Store(memarg(base + 4, 2)));
+            // value
+            f.instruction(&Instruction::LocalGet(cap_entries));
+            f.instruction(&Instruction::LocalGet(cap_val_local));
+            f.instruction(&Instruction::I32Store(memarg(base + 8, 2)));
+        }
+
+        f.instruction(&Instruction::LocalGet(cap_entries));
+        f.instruction(&Instruction::I32Const(captured.len() as i32));
+        f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
+        f.instruction(&Instruction::LocalSet(env_local));
+    }
+
+    // Register lambda body for deferred compilation, get table index
+    let table_idx = ctx.register_lambda(
+        lambda.params.clone(),
+        lambda.body.clone(),
+        captured,
+    );
+
+    // Create LAMBDA value: tag=7, w1=table_idx, w2=env_ptr
+    let lambda_val = ctx.alloc_local(ValType::I32);
+    f.instruction(&Instruction::I32Const(VALUE_SIZE as i32));
+    f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+    f.instruction(&Instruction::LocalSet(lambda_val));
+    // tag = TAG_LAMBDA
+    f.instruction(&Instruction::LocalGet(lambda_val));
+    f.instruction(&Instruction::I32Const(TAG_LAMBDA));
+    f.instruction(&Instruction::I32Store(memarg(0, 2)));
+    // w1 = table_idx (index into the indirect function table)
+    f.instruction(&Instruction::LocalGet(lambda_val));
+    f.instruction(&Instruction::I32Const(table_idx as i32));
+    f.instruction(&Instruction::I32Store(memarg(4, 2)));
+    // w2 = env_ptr
+    f.instruction(&Instruction::LocalGet(lambda_val));
+    f.instruction(&Instruction::LocalGet(env_local));
+    f.instruction(&Instruction::I32Store(memarg(8, 2)));
+    // Leave lambda_val on stack
+    f.instruction(&Instruction::LocalGet(lambda_val));
+    Ok(())
+}
+
+fn emit_list_lit(
+    elems: &[Expr],
+    ctx: &mut FuncContext,
+    f: &mut Function,
+) -> CodegenResult<()> {
     let count = elems.len() as i32;
     if count == 0 {
         // Empty list: arr_ptr = 0, count = 0
@@ -144,58 +230,240 @@ fn emit_record_lit(
     ctx: &mut FuncContext,
     f: &mut Function,
 ) -> CodegenResult<()> {
-    // Count only Field entries (spreads are handled inline)
-    let field_count: usize = entries
+    let explicit_count = entries
         .iter()
         .filter(|e| matches!(e, RecordEntry::Field { .. }))
         .count();
 
-    if field_count == 0 && entries.is_empty() {
-        f.instruction(&Instruction::I32Const(0));
-        f.instruction(&Instruction::I32Const(0));
-        f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
-        return Ok(());
-    }
+    let has_spread = entries
+        .iter()
+        .any(|e| matches!(e, RecordEntry::Spread(_)));
 
-    // Each entry is 12 bytes: [key_offset: i32, key_len: i32, value_ptr: i32]
-    let entries_local = ctx.alloc_local(ValType::I32);
-    f.instruction(&Instruction::I32Const((field_count * 12) as i32));
-    f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
-    f.instruction(&Instruction::LocalSet(entries_local));
+    if !has_spread {
+        // No spread — simple static allocation
+        if explicit_count == 0 {
+            f.instruction(&Instruction::I32Const(0));
+            f.instruction(&Instruction::I32Const(0));
+            f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
+            return Ok(());
+        }
 
-    let mut idx = 0usize;
-    for entry in entries {
-        match entry {
-            RecordEntry::Field { name, value } => {
+        let entries_local = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::I32Const((explicit_count * 12) as i32));
+        f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+        f.instruction(&Instruction::LocalSet(entries_local));
+
+        let mut idx = 0usize;
+        for entry in entries {
+            if let RecordEntry::Field { name, value } = entry {
                 let (key_ptr, key_len) = ctx.intern_string(&name.name);
                 let val_local = ctx.alloc_local(ValType::I32);
                 emit_expr(value, ctx, f)?;
                 f.instruction(&Instruction::LocalSet(val_local));
 
                 let base_offset = (idx * 12) as u64;
-                // key_offset
                 f.instruction(&Instruction::LocalGet(entries_local));
                 f.instruction(&Instruction::I32Const(key_ptr as i32));
                 f.instruction(&Instruction::I32Store(memarg(base_offset, 2)));
-                // key_len
                 f.instruction(&Instruction::LocalGet(entries_local));
                 f.instruction(&Instruction::I32Const(key_len as i32));
                 f.instruction(&Instruction::I32Store(memarg(base_offset + 4, 2)));
-                // value_ptr
                 f.instruction(&Instruction::LocalGet(entries_local));
                 f.instruction(&Instruction::LocalGet(val_local));
                 f.instruction(&Instruction::I32Store(memarg(base_offset + 8, 2)));
                 idx += 1;
             }
-            RecordEntry::Spread(_spread_expr) => {
-                // Spread requires copying all fields from the source record
-                // into the target. For now, emit nothing (TODO).
-            }
+        }
+
+        f.instruction(&Instruction::LocalGet(entries_local));
+        f.instruction(&Instruction::I32Const(explicit_count as i32));
+        f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
+        return Ok(());
+    }
+
+    // ── Spread path: dynamic record construction ─────────────────────────
+    // Strategy: copy spread source entries, then overlay explicit fields
+    // (overwrite matching key or append new entry).
+
+    let new_entries = ctx.alloc_local(ValType::I32);
+    let final_count = ctx.alloc_local(ValType::I32);
+
+    // Evaluate first spread expression
+    let spread_expr = entries
+        .iter()
+        .find_map(|e| match e {
+            RecordEntry::Spread(expr) => Some(expr),
+            _ => None,
+        })
+        .unwrap();
+
+    let spread_local = ctx.alloc_local(ValType::I32);
+    emit_expr(spread_expr, ctx, f)?;
+    f.instruction(&Instruction::LocalSet(spread_local));
+
+    // Read spread record's entries and field count
+    let spread_entries_ptr = ctx.alloc_local(ValType::I32);
+    let spread_count_local = ctx.alloc_local(ValType::I32);
+    f.instruction(&Instruction::LocalGet(spread_local));
+    f.instruction(&Instruction::I32Load(memarg(4, 2)));
+    f.instruction(&Instruction::LocalSet(spread_entries_ptr));
+    f.instruction(&Instruction::LocalGet(spread_local));
+    f.instruction(&Instruction::I32Load(memarg(8, 2)));
+    f.instruction(&Instruction::LocalSet(spread_count_local));
+
+    // Allocate max entries: spread_count + explicit_count
+    f.instruction(&Instruction::LocalGet(spread_count_local));
+    f.instruction(&Instruction::I32Const(explicit_count as i32));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::I32Const(12));
+    f.instruction(&Instruction::I32Mul);
+    f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+    f.instruction(&Instruction::LocalSet(new_entries));
+
+    // Copy all spread entries via loop
+    let copy_i = ctx.alloc_local(ValType::I32);
+    let src_entry = ctx.alloc_local(ValType::I32);
+    let dst_entry = ctx.alloc_local(ValType::I32);
+    f.instruction(&Instruction::I32Const(0));
+    f.instruction(&Instruction::LocalSet(copy_i));
+
+    f.instruction(&Instruction::Block(BlockType::Empty));
+    f.instruction(&Instruction::Loop(BlockType::Empty));
+    f.instruction(&Instruction::LocalGet(copy_i));
+    f.instruction(&Instruction::LocalGet(spread_count_local));
+    f.instruction(&Instruction::I32GeU);
+    f.instruction(&Instruction::BrIf(1));
+
+    f.instruction(&Instruction::LocalGet(spread_entries_ptr));
+    f.instruction(&Instruction::LocalGet(copy_i));
+    f.instruction(&Instruction::I32Const(12));
+    f.instruction(&Instruction::I32Mul);
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(src_entry));
+    f.instruction(&Instruction::LocalGet(new_entries));
+    f.instruction(&Instruction::LocalGet(copy_i));
+    f.instruction(&Instruction::I32Const(12));
+    f.instruction(&Instruction::I32Mul);
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(dst_entry));
+
+    // Copy key_offset, key_len, value_ptr
+    f.instruction(&Instruction::LocalGet(dst_entry));
+    f.instruction(&Instruction::LocalGet(src_entry));
+    f.instruction(&Instruction::I32Load(memarg(0, 2)));
+    f.instruction(&Instruction::I32Store(memarg(0, 2)));
+    f.instruction(&Instruction::LocalGet(dst_entry));
+    f.instruction(&Instruction::LocalGet(src_entry));
+    f.instruction(&Instruction::I32Load(memarg(4, 2)));
+    f.instruction(&Instruction::I32Store(memarg(4, 2)));
+    f.instruction(&Instruction::LocalGet(dst_entry));
+    f.instruction(&Instruction::LocalGet(src_entry));
+    f.instruction(&Instruction::I32Load(memarg(8, 2)));
+    f.instruction(&Instruction::I32Store(memarg(8, 2)));
+
+    f.instruction(&Instruction::LocalGet(copy_i));
+    f.instruction(&Instruction::I32Const(1));
+    f.instruction(&Instruction::I32Add);
+    f.instruction(&Instruction::LocalSet(copy_i));
+    f.instruction(&Instruction::Br(0));
+    f.instruction(&Instruction::End); // end loop
+    f.instruction(&Instruction::End); // end block
+
+    // Initialize final_count = spread_count
+    f.instruction(&Instruction::LocalGet(spread_count_local));
+    f.instruction(&Instruction::LocalSet(final_count));
+
+    // For each explicit field: scan for matching key → overwrite or append
+    for entry in entries {
+        if let RecordEntry::Field { name, value } = entry {
+            let (key_ptr, key_len) = ctx.intern_string(&name.name);
+            let val_local = ctx.alloc_local(ValType::I32);
+            emit_expr(value, ctx, f)?;
+            f.instruction(&Instruction::LocalSet(val_local));
+
+            let scan_i = ctx.alloc_local(ValType::I32);
+            let found = ctx.alloc_local(ValType::I32);
+            let scan_entry = ctx.alloc_local(ValType::I32);
+            f.instruction(&Instruction::I32Const(0));
+            f.instruction(&Instruction::LocalSet(scan_i));
+            f.instruction(&Instruction::I32Const(0));
+            f.instruction(&Instruction::LocalSet(found));
+
+            f.instruction(&Instruction::Block(BlockType::Empty));
+            f.instruction(&Instruction::Loop(BlockType::Empty));
+            f.instruction(&Instruction::LocalGet(scan_i));
+            f.instruction(&Instruction::LocalGet(final_count));
+            f.instruction(&Instruction::I32GeU);
+            f.instruction(&Instruction::BrIf(1));
+
+            f.instruction(&Instruction::LocalGet(new_entries));
+            f.instruction(&Instruction::LocalGet(scan_i));
+            f.instruction(&Instruction::I32Const(12));
+            f.instruction(&Instruction::I32Mul);
+            f.instruction(&Instruction::I32Add);
+            f.instruction(&Instruction::LocalSet(scan_entry));
+
+            // Compare key_len then memcmp
+            f.instruction(&Instruction::LocalGet(scan_entry));
+            f.instruction(&Instruction::I32Load(memarg(4, 2)));
+            f.instruction(&Instruction::I32Const(key_len as i32));
+            f.instruction(&Instruction::I32Eq);
+            f.instruction(&Instruction::If(BlockType::Empty));
+            f.instruction(&Instruction::LocalGet(scan_entry));
+            f.instruction(&Instruction::I32Load(memarg(0, 2)));
+            f.instruction(&Instruction::I32Const(key_ptr as i32));
+            f.instruction(&Instruction::I32Const(key_len as i32));
+            f.instruction(&Instruction::Call(rt_func_idx(RT_MEMCMP)));
+            f.instruction(&Instruction::If(BlockType::Empty));
+            // Found — overwrite value
+            f.instruction(&Instruction::LocalGet(scan_entry));
+            f.instruction(&Instruction::LocalGet(val_local));
+            f.instruction(&Instruction::I32Store(memarg(8, 2)));
+            f.instruction(&Instruction::I32Const(1));
+            f.instruction(&Instruction::LocalSet(found));
+            f.instruction(&Instruction::Br(3)); // break loop+block
+            f.instruction(&Instruction::End); // end memcmp if
+            f.instruction(&Instruction::End); // end key_len if
+
+            f.instruction(&Instruction::LocalGet(scan_i));
+            f.instruction(&Instruction::I32Const(1));
+            f.instruction(&Instruction::I32Add);
+            f.instruction(&Instruction::LocalSet(scan_i));
+            f.instruction(&Instruction::Br(0));
+            f.instruction(&Instruction::End); // end loop
+            f.instruction(&Instruction::End); // end block
+
+            // If not found, append new entry
+            f.instruction(&Instruction::LocalGet(found));
+            f.instruction(&Instruction::I32Eqz);
+            f.instruction(&Instruction::If(BlockType::Empty));
+            let append_entry = ctx.alloc_local(ValType::I32);
+            f.instruction(&Instruction::LocalGet(new_entries));
+            f.instruction(&Instruction::LocalGet(final_count));
+            f.instruction(&Instruction::I32Const(12));
+            f.instruction(&Instruction::I32Mul);
+            f.instruction(&Instruction::I32Add);
+            f.instruction(&Instruction::LocalSet(append_entry));
+            f.instruction(&Instruction::LocalGet(append_entry));
+            f.instruction(&Instruction::I32Const(key_ptr as i32));
+            f.instruction(&Instruction::I32Store(memarg(0, 2)));
+            f.instruction(&Instruction::LocalGet(append_entry));
+            f.instruction(&Instruction::I32Const(key_len as i32));
+            f.instruction(&Instruction::I32Store(memarg(4, 2)));
+            f.instruction(&Instruction::LocalGet(append_entry));
+            f.instruction(&Instruction::LocalGet(val_local));
+            f.instruction(&Instruction::I32Store(memarg(8, 2)));
+            f.instruction(&Instruction::LocalGet(final_count));
+            f.instruction(&Instruction::I32Const(1));
+            f.instruction(&Instruction::I32Add);
+            f.instruction(&Instruction::LocalSet(final_count));
+            f.instruction(&Instruction::End); // end not-found if
         }
     }
 
-    f.instruction(&Instruction::LocalGet(entries_local));
-    f.instruction(&Instruction::I32Const(field_count as i32));
+    // Build final record
+    f.instruction(&Instruction::LocalGet(new_entries));
+    f.instruction(&Instruction::LocalGet(final_count));
     f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
     Ok(())
 }
@@ -543,11 +811,42 @@ fn emit_unary(
     Ok(())
 }
 
-fn emit_result_unwrap(inner: &Expr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
-    // `expr?` — if the result is an error variant, trap; otherwise unwrap.
-    // For now, just pass through (the type checker validates this).
+fn emit_result_unwrap(
+    inner: &Expr,
+    ctx: &mut FuncContext,
+    f: &mut Function,
+) -> CodegenResult<()> {
+    // `expr?` — if the result is an Err variant, trap; otherwise unwrap Ok's data.
     emit_expr(inner, ctx, f)?;
-    // TODO: check if variant tag is "Err" and trap
+    let result_local = ctx.alloc_local(ValType::I32);
+    f.instruction(&Instruction::LocalSet(result_local));
+
+    // Get variant_id for "Err"
+    let err_id = ctx.get_variant_id("Err");
+
+    // Check: tag == TAG_VARIANT && variant_id == err_id → trap
+    f.instruction(&Instruction::LocalGet(result_local));
+    f.instruction(&Instruction::I32Load(memarg(0, 2))); // tag
+    f.instruction(&Instruction::I32Const(TAG_VARIANT));
+    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    // It's a variant — check if it's Err
+    f.instruction(&Instruction::LocalGet(result_local));
+    f.instruction(&Instruction::I32Load(memarg(4, 2))); // variant_id (w1)
+    f.instruction(&Instruction::I32Const(err_id as i32));
+    f.instruction(&Instruction::I32Eq);
+    f.instruction(&Instruction::If(BlockType::Empty));
+    // Err → trap with "unwrap on Err!"
+    f.instruction(&Instruction::I32Const(ctx.data.unwrap_failed_ptr as i32));
+    f.instruction(&Instruction::I32Const(ctx.data.unwrap_failed_len as i32));
+    f.instruction(&Instruction::Call(IMPORT_TRAP));
+    f.instruction(&Instruction::Unreachable);
+    f.instruction(&Instruction::End); // end err check
+    f.instruction(&Instruction::End); // end variant check
+
+    // Ok → extract data payload at w2
+    f.instruction(&Instruction::LocalGet(result_local));
+    f.instruction(&Instruction::I32Load(memarg(8, 2))); // data_ptr (w2)
     Ok(())
 }
 
@@ -577,7 +876,11 @@ fn emit_nil_coalesce(
 // Control Flow Expressions
 // ══════════════════════════════════════════════════════════════════════════════
 
-fn emit_if_expr(if_expr: &IfExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
+fn emit_if_expr(
+    if_expr: &IfExpr,
+    ctx: &mut FuncContext,
+    f: &mut Function,
+) -> CodegenResult<()> {
     // Evaluate condition
     emit_expr(&if_expr.condition, ctx, f)?;
     // Extract bool value: load w1 (i32)
@@ -608,7 +911,11 @@ fn emit_if_expr(if_expr: &IfExpr, ctx: &mut FuncContext, f: &mut Function) -> Co
     Ok(())
 }
 
-fn emit_for_expr(for_expr: &ForExpr, ctx: &mut FuncContext, f: &mut Function) -> CodegenResult<()> {
+fn emit_for_expr(
+    for_expr: &ForExpr,
+    ctx: &mut FuncContext,
+    f: &mut Function,
+) -> CodegenResult<()> {
     // Evaluate iterable → should be a list value
     let list_local = ctx.alloc_local(ValType::I32);
     let arr_local = ctx.alloc_local(ValType::I32);

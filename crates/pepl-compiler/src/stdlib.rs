@@ -144,10 +144,7 @@ impl StdlibRegistry {
         self.add(
             "math",
             "clamp",
-            Self::sig(
-                vec![("x", Number), ("min", Number), ("max", Number)],
-                Number,
-            ),
+            Self::sig(vec![("x", Number), ("min", Number), ("max", Number)], Number),
         );
         self.add("math", "sqrt", Self::sig(vec![("x", Number)], Number));
 
@@ -159,7 +156,11 @@ impl StdlibRegistry {
     /// string: 20 functions
     fn register_string(&mut self) {
         use Type::*;
-        self.add("string", "length", Self::sig(vec![("s", String)], Number));
+        self.add(
+            "string",
+            "length",
+            Self::sig(vec![("s", String)], Number),
+        );
         self.add(
             "string",
             "concat",
@@ -187,8 +188,16 @@ impl StdlibRegistry {
                 List(Box::new(String)),
             ),
         );
-        self.add("string", "to_upper", Self::sig(vec![("s", String)], String));
-        self.add("string", "to_lower", Self::sig(vec![("s", String)], String));
+        self.add(
+            "string",
+            "to_upper",
+            Self::sig(vec![("s", String)], String),
+        );
+        self.add(
+            "string",
+            "to_lower",
+            Self::sig(vec![("s", String)], String),
+        );
         self.add(
             "string",
             "starts_with",
@@ -253,7 +262,11 @@ impl StdlibRegistry {
             ),
         );
         self.add("string", "from", Self::sig(vec![("value", Any)], String));
-        self.add("string", "is_empty", Self::sig(vec![("s", String)], Bool));
+        self.add(
+            "string",
+            "is_empty",
+            Self::sig(vec![("s", String)], Bool),
+        );
         self.add(
             "string",
             "index_of",
@@ -269,11 +282,7 @@ impl StdlibRegistry {
 
         // Construction
         self.add("list", "empty", Self::sig(vec![], list_t()));
-        self.add(
-            "list",
-            "of",
-            Self::variadic_sig(vec![("items", t())], list_t()),
-        );
+        self.add("list", "of", Self::variadic_sig(vec![("items", t())], list_t()));
         self.add(
             "list",
             "repeat",
@@ -282,10 +291,7 @@ impl StdlibRegistry {
         self.add(
             "list",
             "range",
-            Self::sig(
-                vec![("start", Number), ("end", Number)],
-                List(Box::new(Number)),
-            ),
+            Self::sig(vec![("start", Number), ("end", Number)], List(Box::new(Number))),
         );
 
         // Access
@@ -299,8 +305,16 @@ impl StdlibRegistry {
             "get",
             Self::sig(vec![("items", list_t()), ("index", Number)], t()),
         );
-        self.add("list", "first", Self::sig(vec![("items", list_t())], t()));
-        self.add("list", "last", Self::sig(vec![("items", list_t())], t()));
+        self.add(
+            "list",
+            "first",
+            Self::sig(vec![("items", list_t())], t()),
+        );
+        self.add(
+            "list",
+            "last",
+            Self::sig(vec![("items", list_t())], t()),
+        );
         self.add(
             "list",
             "index_of",
@@ -445,6 +459,18 @@ impl StdlibRegistry {
                 Bool,
             ),
         );
+        // list.any (spec name) + list.some (backward-compat alias)
+        self.add(
+            "list",
+            "any",
+            Self::sig(
+                vec![
+                    ("items", list_t()),
+                    ("predicate", Function(vec![t()], Box::new(Bool))),
+                ],
+                Bool,
+            ),
+        );
         self.add(
             "list",
             "some",
@@ -493,6 +519,11 @@ impl StdlibRegistry {
             "take",
             Self::sig(vec![("items", list_t()), ("n", Number)], list_t()),
         );
+        self.add(
+            "list",
+            "drop",
+            Self::sig(vec![("items", list_t()), ("n", Number)], list_t()),
+        );
     }
 
     /// record: 5 functions
@@ -519,7 +550,10 @@ impl StdlibRegistry {
         self.add(
             "record",
             "keys",
-            Self::sig(vec![("rec", Record(vec![]))], List(Box::new(String))),
+            Self::sig(
+                vec![("rec", Record(vec![]))],
+                List(Box::new(String)),
+            ),
         );
         self.add(
             "record",
@@ -586,7 +620,11 @@ impl StdlibRegistry {
                 Result(Box::new(Number), Box::new(String)),
             ),
         );
-        self.add("convert", "to_bool", Self::sig(vec![("value", Any)], Bool));
+        self.add(
+            "convert",
+            "to_bool",
+            Self::sig(vec![("value", Any)], Bool),
+        );
     }
 
     /// json: 2 functions
@@ -595,9 +633,16 @@ impl StdlibRegistry {
         self.add(
             "json",
             "parse",
-            Self::sig(vec![("s", String)], Result(Box::new(Any), Box::new(String))),
+            Self::sig(
+                vec![("s", String)],
+                Result(Box::new(Any), Box::new(String)),
+            ),
         );
-        self.add("json", "stringify", Self::sig(vec![("value", Any)], String));
+        self.add(
+            "json",
+            "stringify",
+            Self::sig(vec![("value", Any)], String),
+        );
     }
 
     /// timer: 4 functions (capability: timer)
@@ -613,7 +658,11 @@ impl StdlibRegistry {
             "start_once",
             Self::sig(vec![("id", String), ("delay_ms", Number)], String),
         );
-        self.add("timer", "stop", Self::sig(vec![("id", String)], Nil));
+        self.add(
+            "timer",
+            "stop",
+            Self::sig(vec![("id", String)], Nil),
+        );
         self.add("timer", "stop_all", Self::sig(vec![], Nil));
     }
 
@@ -621,11 +670,7 @@ impl StdlibRegistry {
     fn register_http(&mut self) {
         use Type::*;
         let result_ty = |ok: Type| Result(Box::new(ok), Box::new(String));
-        self.add(
-            "http",
-            "get",
-            Self::sig(vec![("url", String)], result_ty(String)),
-        );
+        self.add("http", "get", Self::sig(vec![("url", String)], result_ty(String)));
         self.add(
             "http",
             "post",
@@ -641,29 +686,21 @@ impl StdlibRegistry {
             "patch",
             Self::sig(vec![("url", String), ("body", String)], result_ty(String)),
         );
-        self.add(
-            "http",
-            "delete",
-            Self::sig(vec![("url", String)], result_ty(String)),
-        );
+        self.add("http", "delete", Self::sig(vec![("url", String)], result_ty(String)));
     }
 
     /// storage: 4 functions (capability: storage)
     fn register_storage(&mut self) {
         use Type::*;
-        self.add(
-            "storage",
-            "get",
-            Self::sig(vec![("key", String)], Nullable(Box::new(String))),
-        );
-        self.add(
-            "storage",
-            "set",
-            Self::sig(vec![("key", String), ("value", String)], Nil),
-        );
-        self.add("storage", "remove", Self::sig(vec![("key", String)], Nil));
+        self.add("storage", "get", Self::sig(vec![("key", String)], Nullable(Box::new(String))));
+        self.add("storage", "set", Self::sig(vec![("key", String), ("value", String)], Nil));
+        // storage.remove removed — spec only defines storage.delete (F1a)
         self.add("storage", "delete", Self::sig(vec![("key", String)], Nil));
-        self.add("storage", "keys", Self::sig(vec![], List(Box::new(String))));
+        self.add(
+            "storage",
+            "keys",
+            Self::sig(vec![], List(Box::new(String))),
+        );
     }
 
     /// location: 1 function (capability: location)
@@ -675,16 +712,8 @@ impl StdlibRegistry {
             Self::sig(
                 vec![],
                 Record(vec![
-                    crate::ty::RecordField {
-                        name: "lat".into(),
-                        ty: Number,
-                        optional: false,
-                    },
-                    crate::ty::RecordField {
-                        name: "lon".into(),
-                        ty: Number,
-                        optional: false,
-                    },
+                    crate::ty::RecordField { name: "lat".into(), ty: Number, optional: false },
+                    crate::ty::RecordField { name: "lon".into(), ty: Number, optional: false },
                 ]),
             ),
         );

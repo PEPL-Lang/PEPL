@@ -422,3 +422,187 @@
 - [x] `cargo clippy -- -D warnings` clean
 - [x] `cargo fmt --check` clean
 - [x] README.md complete with build instructions and architecture overview
+---
+
+## Phase 9: WASM Codegen Fixes (Phase 0A)
+
+> Fix critical WASM codegen issues identified in the compliance audit (findings.md F1–F16).
+> The WASM backend produces silently wrong results without these fixes.
+> The evaluator (pepl-eval) handles all of these correctly — codegen must reach parity.
+
+### 9.1 Lambda/Closure Codegen
+- [x] Replace placeholder `nil` emission with proper function table + environment capture
+- [x] Lambda body compiled as WASM function, added to function table
+- [x] Captured variables stored in a closure record on the heap
+- [ ] Higher-order stdlib calls (`list.map`, `list.filter`, `list.sort`, `list.reduce`, `list.find`, `list.every`, `list.some`, `list.count`, `list.find_index`, `list.flat_map`, `list.sort_by`) receive function table index
+- [ ] UI callback props (`on_tap`, `on_change`, `render`, `key`) receive function table index
+- [x] Unit tests: lambda creation, capture, callback dispatch
+- [x] 100-iteration determinism test
+
+### 9.2 Record Spread Codegen
+- [x] Implement field copying from spread source record into target record
+- [x] `{ ...base, field: val }` copies all fields from `base`, then overwrites with explicit fields
+- [x] Handle multiple spreads in one record literal
+- [x] `field_count` accounts for spread fields
+- [x] Unit tests: spread with override, spread-only, nested spread
+- [x] 100-iteration determinism test
+
+### 9.3 String Comparison Fix
+- [x] Replace pointer comparison with byte-by-byte string content comparison for `==`/`!=`
+- [x] Dynamically created strings with identical content must compare as equal
+- [x] String comparison used by `list.contains`, `match`, record key lookup, etc.
+- [x] Unit tests: interned vs dynamic strings, empty strings, unicode equality
+
+### 9.4 Record Key Comparison Fix
+- [x] Replace pointer comparison with byte-by-byte comparison in `record.get` / `record.set` / `record.has` key lookup
+- [x] Dynamic key strings (from variables, interpolation) match against record field names
+- [x] Unit tests: `record.get(r, key)` where `key` is a variable, interpolated, or literal
+
+### 9.5 Result Unwrap (`?`) Codegen
+- [x] Check variant tag: if `Ok`, unwrap and return inner value
+- [x] If `Err`, trap with error message
+- [x] Completes the unchecked item from Phase 7.3
+- [x] Unit tests: `?` on Ok, `?` on Err (trap), chained `?` expressions
+
+### 9.6 Nested Set Fix
+- [x] 2-level `set a.b = x`: preserve all sibling fields of the inner record
+- [x] 3+ level `set a.b.c = x`: preserve intermediate object structure at all levels
+- [x] Implement immutable record update chain (read → clone → write → replace)
+- [x] Unit tests: nested set preserving siblings at 2 and 3 levels
+
+### 9.7 Stdlib Name Alignment
+- [x] Remove `storage.remove` from type checker's stdlib registry (keep only `storage.delete`)
+- [x] Align `list.any`/`list.some` naming — decide on spec name and rename in type checker + codegen dispatch
+- [x] Add `list.drop` to type checker's stdlib registry
+- [ ] Remove or document extra functions not in Phase 0 spec: `list.insert`, `list.update`, `list.find_index`, `list.zip`, `list.flatten`
+- [x] Coordinate with pepl-stdlib Phase 7 for implementation-side changes
+
+### 9.8 Additional Codegen Fixes
+- [x] Fix `to_string` for records and lists — emit proper debug representation instead of `"[value]"` placeholder
+- [ ] Resolve keyword count discrepancy: update LLM Generation Contract or grammar.md to agree on reserved word count
+- [x] Unit tests for `to_string` output format
+
+### 9.9 Phase 9 Validation
+- [x] All canonical examples compile and produce correct WASM output
+- [x] Lambda-using examples (TodoList, QuizApp with callbacks) produce correct results
+- [x] Record spread examples produce correct results
+- [x] `cargo test --workspace` — all tests pass (498 pass)
+- [x] `cargo clippy -- -D warnings` clean (2 warnings only — unused_assignments in next_idx tracking)
+- [x] 100-iteration determinism test across full pipeline
+
+---
+
+## Phase 10: Compiler Metadata & Host Integration (Phase 0B)
+
+> Enrich compiler output so any host application can use the compiler.
+> Fix remaining host integration contract divergences from the spec.
+
+### 10.1 CompileResult Enrichment
+- [ ] Surface full AST in `CompileResult` (serializable to JSON)
+- [ ] Add source hash (SHA-256) to `CompileResult`
+- [ ] Add WASM hash (SHA-256) to `CompileResult`
+- [ ] Surface state field list (names + types) in `CompileResult`
+- [ ] Surface action list (names + parameter types) in `CompileResult`
+- [ ] Surface view list, declared capabilities, declared credentials in `CompileResult`
+- [ ] Add PEPL language version and compiler version fields
+- [ ] Add warnings list (empty for now, reserved for future)
+- [ ] Unit tests for all new CompileResult fields
+
+### 10.2 Host Integration Fixes
+- [ ] Add `env.get_timestamp` as a dedicated WASM import (i64 return, host-controlled)
+- [ ] Add `dealloc` WASM export for host memory management
+- [ ] Align `dispatch_action` export signature with spec: `(action_id: i32, payload_ptr: i32, payload_len: i32) -> void`
+- [ ] Align `init` export signature with spec (resolve `gas_limit` parameter question)
+- [ ] Unit tests for all import/export signatures
+
+### 10.3 Error System Improvements
+- [ ] Wire E301 (`INVARIANT_UNKNOWN_FIELD`) into checker
+- [ ] Wire E401 (`CAPABILITY_UNAVAILABLE`) into checker
+- [ ] Wire E600 (`BLOCK_ORDERING_VIOLATED`) into checker (or document parser handles it)
+- [ ] Wire E602 (`EXPRESSION_BODY_LAMBDA`) into checker (or document parser handles it)
+- [ ] Wire E603 (`BLOCK_COMMENT_USED`) into checker (or document lexer handles it)
+- [ ] Wire E604 (`UNDECLARED_CREDENTIAL`) into checker
+- [ ] Wire E606 (`EMPTY_STATE_BLOCK`) into checker
+- [ ] Wire E607 (`STRUCTURAL_LIMIT_EXCEEDED`) into checker (or document parser handles it)
+- [ ] Add structured `suggestion` field to all error messages
+- [ ] Unit tests for all newly wired error codes
+
+### 10.4 Runtime Improvements
+- [ ] Implement capability call suspension/resume in WASM (Asyncify transform, split-execution, or JS wrapper re-entry)
+- [ ] Fix derived field recomputation in codegen — emit proper computed value instead of `NilLit` placeholder
+- [ ] Add `memory.grow` support to bump allocator (handle OOM by growing linear memory)
+- [ ] Make WASM validation (`wasmparser`) a mandatory step in the compile pipeline, not just a test
+- [ ] Implement `any` type runtime checks on state assignment — evaluator + codegen (completes unchecked Phase 6.4 and 7.3 items)
+
+### 10.5 Phase 10 Validation
+- [ ] All canonical examples compile with enriched `CompileResult`
+- [ ] CompileResult JSON includes AST, hashes, state/action/view lists
+- [ ] Host integration signatures match `host-integration.md` spec
+- [ ] All 25 error codes have tests and at least one emitter
+- [ ] Capability calls suspend/resume correctly in WASM
+- [ ] `cargo test --workspace` — all tests pass
+- [ ] `cargo clippy -- -D warnings` clean
+- [ ] 100-iteration determinism test
+
+---
+
+## Phase 11: Incremental Compilation & Testing Infrastructure (Phase 0C)
+
+> Build the infrastructure needed for incremental compilation, code transformations, and PEPL's test pipeline.
+
+### 11.1 AST Diff Infrastructure
+- [ ] Define `AstDiff` type: list of `AstChange` (added, removed, modified nodes with paths)
+- [ ] Implement `ast_diff(old: &Ast, new: &Ast) -> AstDiff` — walk both ASTs in parallel
+- [ ] Implement `AstDiff` serialization (compact JSON format, ~0.5–5 KB per diff)
+- [ ] Implement scope validation: given an `AstDiff` and a set of allowed change scopes, accept/reject
+- [ ] Unit tests: identical ASTs (empty diff), single field change, action added, view modified
+
+### 11.2 Determinism & Parity Infrastructure
+- [ ] Build determinism proof harness: compile space, run with known inputs, capture output, repeat, compare byte-for-byte
+- [ ] Build eval↔codegen parity test harness: run same PEPL programs through evaluator and WASM backend, compare state + view output
+- [ ] Integrate both harnesses into `cargo test` as integration tests
+- [ ] Run parity tests on all 7 canonical examples
+
+### 11.3 Test Codegen
+- [ ] Compile PEPL `test` blocks to WASM (fresh state per test case, action dispatch, assert checks)
+- [ ] Implement `with_responses` mock capability dispatch for test blocks in WASM (completes unchecked Phase 7.5 items)
+- [ ] Test execution in WASM sandbox with 5-second timeout per test
+- [ ] Unit tests: test block compilation, mock dispatch, timeout enforcement
+
+### 11.4 Source Mapping
+- [ ] Generate source map during compilation (WASM instruction offset → PEPL source line/column)
+- [ ] Embed source map in WASM custom section or as separate output in `CompileResult`
+- [ ] Unit tests: trap at known WASM offset resolves to correct PEPL source position
+
+### 11.5 Phase 11 Validation
+- [ ] AST diff produces correct diffs for all canonical example mutations
+- [ ] Determinism proof passes for all canonical examples
+- [ ] Eval↔codegen parity holds for all canonical examples
+- [ ] Test blocks compile and execute correctly in WASM
+- [ ] Source maps resolve correctly for all trap types
+- [ ] `cargo test --workspace` — all tests pass
+- [ ] `cargo clippy -- -D warnings` clean
+
+---
+
+## Phase 12: LLM-First Tooling (Phase 0D)
+
+> Machine-generate PEPL reference material from the compiler's own type registry.
+> Export it from `pepl-wasm` so any host can inject it into LLM prompts.
+
+### 12.1 Reference Generation
+- [ ] Machine-generate compressed PEPL reference (~2K tokens) from `StdlibRegistry` — all types, keywords, stdlib functions
+- [ ] Machine-generate Phase 0 stdlib table from `StdlibRegistry` — function signatures, descriptions
+- [ ] Output matches the format specified in `llm-generation-contract.md`
+- [ ] Reference auto-updates when stdlib changes (generated, not hand-written)
+
+### 12.2 WASM Exports
+- [ ] Export `get_reference() -> String` from `pepl-wasm` crate
+- [ ] Export `get_stdlib_table() -> String` from `pepl-wasm` crate
+- [ ] Unit tests: reference contains all 88 functions, stdlib table is valid JSON
+
+### 12.3 Phase 12 Validation
+- [ ] Generated reference is ≤ 2K tokens (measured with tiktoken or equivalent)
+- [ ] Generated stdlib table matches `phase-0-stdlib-reference.md` content
+- [ ] `cargo test --workspace` — all tests pass
+- [ ] `cargo clippy -- -D warnings` clean

@@ -603,22 +603,9 @@ fn emit_recompute_derived(
         emit_expr(&field.value, ctx, f)?;
         f.instruction(&Instruction::LocalSet(val_local));
 
-        // Update state: rebuild record with this derived field updated
-        // We use the same state_field_set mechanism
+        // Update state record with the computed derived value
         let field_name = field.name.name.clone();
-        crate::stmt::emit_stmt(
-            &Stmt::Set(SetStmt {
-                target: vec![pepl_types::ast::Ident::new(field_name, field.name.span)],
-                value: Expr::new(ExprKind::NilLit, field.value.span), // placeholder
-                span: field.span,
-            }),
-            ctx,
-            f,
-        )?;
-        // Actually override: instead of using the placeholder, directly set
-        // This is tricky — let's use a simpler approach:
-        // We store the computed value via GlobalSet after rebuilding.
-        // For now this is a simplified pass. TODO: proper derived integration.
+        crate::stmt::emit_state_field_set(&field_name, val_local, ctx, f)?;
     }
     Ok(())
 }

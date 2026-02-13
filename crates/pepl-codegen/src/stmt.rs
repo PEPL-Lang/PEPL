@@ -65,7 +65,7 @@ fn emit_set(set: &SetStmt, ctx: &mut FuncContext, f: &mut Function) -> CodegenRe
 }
 
 /// Set a single state field.
-fn emit_state_field_set(
+pub(crate) fn emit_state_field_set(
     field_name: &str,
     val_local: u32,
     ctx: &mut FuncContext,
@@ -160,27 +160,116 @@ fn emit_nested_set(
         f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD_GET)));
         f.instruction(&Instruction::LocalSet(old_inner));
 
-        // Build updated inner record with single field replaced
-        // For now, create a new 1-field record (simplified — full spread TODO)
-        let inner_entries = ctx.alloc_local(ValType::I32);
-        f.instruction(&Instruction::I32Const(12));
-        f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
-        f.instruction(&Instruction::LocalSet(inner_entries));
+        // Read old inner record's entries and field count
+        let old_entries_ptr = ctx.alloc_local(ValType::I32);
+        let old_count = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::LocalGet(old_inner));
+        f.instruction(&Instruction::I32Load(memarg(4, 2))); // entries_ptr (w1)
+        f.instruction(&Instruction::LocalSet(old_entries_ptr));
+        f.instruction(&Instruction::LocalGet(old_inner));
+        f.instruction(&Instruction::I32Load(memarg(8, 2))); // field_count (w2)
+        f.instruction(&Instruction::LocalSet(old_count));
 
+        // Allocate new entries array: count * 12 bytes
+        let new_entries = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::LocalGet(old_count));
+        f.instruction(&Instruction::I32Const(12));
+        f.instruction(&Instruction::I32Mul);
+        f.instruction(&Instruction::Call(rt_func_idx(RT_ALLOC)));
+        f.instruction(&Instruction::LocalSet(new_entries));
+
+        // Intern the target inner field key
         let (inner_key_ptr, inner_key_len) = ctx.intern_string(inner_field);
-        f.instruction(&Instruction::LocalGet(inner_entries));
-        f.instruction(&Instruction::I32Const(inner_key_ptr as i32));
-        f.instruction(&Instruction::I32Store(memarg(0, 2)));
-        f.instruction(&Instruction::LocalGet(inner_entries));
+
+        // Loop: copy each entry, replacing the target field's value
+        let i_local = ctx.alloc_local(ValType::I32);
+        let src_local = ctx.alloc_local(ValType::I32);
+        let dst_local = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::I32Const(0));
+        f.instruction(&Instruction::LocalSet(i_local));
+
+        f.instruction(&Instruction::Block(BlockType::Empty)); // break target
+        f.instruction(&Instruction::Loop(BlockType::Empty));
+
+        // if i >= count → break
+        f.instruction(&Instruction::LocalGet(i_local));
+        f.instruction(&Instruction::LocalGet(old_count));
+        f.instruction(&Instruction::I32GeU);
+        f.instruction(&Instruction::BrIf(1));
+
+        // src = old_entries + i * 12
+        f.instruction(&Instruction::LocalGet(old_entries_ptr));
+        f.instruction(&Instruction::LocalGet(i_local));
+        f.instruction(&Instruction::I32Const(12));
+        f.instruction(&Instruction::I32Mul);
+        f.instruction(&Instruction::I32Add);
+        f.instruction(&Instruction::LocalSet(src_local));
+
+        // dst = new_entries + i * 12
+        f.instruction(&Instruction::LocalGet(new_entries));
+        f.instruction(&Instruction::LocalGet(i_local));
+        f.instruction(&Instruction::I32Const(12));
+        f.instruction(&Instruction::I32Mul);
+        f.instruction(&Instruction::I32Add);
+        f.instruction(&Instruction::LocalSet(dst_local));
+
+        // Copy key_offset and key_len
+        f.instruction(&Instruction::LocalGet(dst_local));
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(0, 2))); // src.key_offset
+        f.instruction(&Instruction::I32Store(memarg(0, 2))); // dst.key_offset
+        f.instruction(&Instruction::LocalGet(dst_local));
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(4, 2))); // src.key_len
+        f.instruction(&Instruction::I32Store(memarg(4, 2))); // dst.key_len
+
+        // Check if this entry's key matches inner_field
+        // Compare lengths first, then memcmp
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(4, 2))); // entry.key_len
         f.instruction(&Instruction::I32Const(inner_key_len as i32));
-        f.instruction(&Instruction::I32Store(memarg(4, 2)));
-        f.instruction(&Instruction::LocalGet(inner_entries));
+        f.instruction(&Instruction::I32Eq);
+        f.instruction(&Instruction::If(BlockType::Empty));
+        // Lengths match — memcmp key data
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(0, 2))); // entry.key_offset
+        f.instruction(&Instruction::I32Const(inner_key_ptr as i32)); // target key_ptr
+        f.instruction(&Instruction::I32Const(inner_key_len as i32)); // key_len
+        f.instruction(&Instruction::Call(rt_func_idx(RT_MEMCMP)));
+        f.instruction(&Instruction::If(BlockType::Empty));
+        // Match → write new value
+        f.instruction(&Instruction::LocalGet(dst_local));
         f.instruction(&Instruction::LocalGet(val_local));
         f.instruction(&Instruction::I32Store(memarg(8, 2)));
+        f.instruction(&Instruction::Else);
+        // Lengths matched but content didn't → copy old value
+        f.instruction(&Instruction::LocalGet(dst_local));
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(8, 2)));
+        f.instruction(&Instruction::I32Store(memarg(8, 2)));
+        f.instruction(&Instruction::End); // end memcmp check
+        f.instruction(&Instruction::Else);
+        // Lengths don't match → copy old value
+        f.instruction(&Instruction::LocalGet(dst_local));
+        f.instruction(&Instruction::LocalGet(src_local));
+        f.instruction(&Instruction::I32Load(memarg(8, 2)));
+        f.instruction(&Instruction::I32Store(memarg(8, 2)));
+        f.instruction(&Instruction::End); // end length check
 
-        let new_inner = ctx.alloc_local(ValType::I32);
-        f.instruction(&Instruction::LocalGet(inner_entries));
+        // i += 1
+        f.instruction(&Instruction::LocalGet(i_local));
         f.instruction(&Instruction::I32Const(1));
+        f.instruction(&Instruction::I32Add);
+        f.instruction(&Instruction::LocalSet(i_local));
+        f.instruction(&Instruction::Br(0)); // continue loop
+
+        f.instruction(&Instruction::End); // end loop
+        f.instruction(&Instruction::End); // end block
+
+        // Build new inner record
+        let new_inner = ctx.alloc_local(ValType::I32);
+        f.instruction(&Instruction::LocalGet(new_entries));
+        f.instruction(&Instruction::LocalGet(old_count));
         f.instruction(&Instruction::Call(rt_func_idx(RT_VAL_RECORD)));
         f.instruction(&Instruction::LocalSet(new_inner));
 
