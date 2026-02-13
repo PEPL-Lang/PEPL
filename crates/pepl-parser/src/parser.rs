@@ -18,6 +18,14 @@ pub struct Parser<'src> {
     file_name: String,
     /// Collected errors.
     errors: CompileErrors,
+    /// Current lambda nesting depth (max 3).
+    pub(crate) lambda_depth: u32,
+    /// Current record literal nesting depth (max 4).
+    pub(crate) record_depth: u32,
+    /// Current expression nesting depth (max 16).
+    pub(crate) expr_depth: u32,
+    /// Current for-loop nesting depth (max 3).
+    pub(crate) for_depth: u32,
 }
 
 /// Result of parsing.
@@ -35,6 +43,10 @@ impl<'src> Parser<'src> {
             file_name: source_file.name.clone(),
             source_file,
             errors: CompileErrors::empty(),
+            lambda_depth: 0,
+            record_depth: 0,
+            expr_depth: 0,
+            for_depth: 0,
         }
     }
 

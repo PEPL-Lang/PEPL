@@ -380,6 +380,16 @@ impl<'src> Parser<'src> {
         }
         self.expect(&TokenKind::RBrace)?;
         let span = start.merge(self.previous_span());
+
+        // Empty state block is an error (E606)
+        if fields.is_empty() {
+            self.error_at(
+                ErrorCode::EMPTY_STATE_BLOCK,
+                "state block must have at least one field",
+                span,
+            );
+        }
+
         Some(StateBlock { fields, span })
     }
 
@@ -582,6 +592,18 @@ impl<'src> Parser<'src> {
         let name = self.expect_identifier()?;
         self.expect(&TokenKind::LParen)?;
         let params = self.parse_param_list()?;
+
+        // Structural limit: max 8 params per action
+        if params.len() > 8 {
+            self.error_at_current(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum 8 parameters per action, got {}",
+                    params.len()
+                ),
+            );
+        }
+
         self.expect(&TokenKind::RParen)?;
         let body = self.parse_block()?;
         let span = start.merge(self.previous_span());

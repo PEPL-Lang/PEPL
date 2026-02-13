@@ -24,7 +24,21 @@ impl<'src> Parser<'src> {
 
     /// Parse an expression.
     pub(crate) fn parse_expression(&mut self) -> Option<Expr> {
-        self.parse_or()
+        self.expr_depth += 1;
+        if self.expr_depth > 16 {
+            self.error_at_current(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum expression nesting depth is 16, got {}",
+                    self.expr_depth
+                ),
+            );
+            self.expr_depth -= 1;
+            return None;
+        }
+        let result = self.parse_or();
+        self.expr_depth -= 1;
+        result
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -443,6 +457,20 @@ impl<'src> Parser<'src> {
     pub(crate) fn parse_for_expr_node(&mut self) -> Option<ForExpr> {
         let start = self.current_span();
         self.advance(); // eat `for`
+
+        // For-loop nesting depth limit
+        self.for_depth += 1;
+        if self.for_depth > 3 {
+            self.error_at(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum for-loop nesting depth is 3, got {}",
+                    self.for_depth
+                ),
+                start,
+            );
+        }
+
         let item = self.expect_identifier()?;
         let index = if self.eat(&TokenKind::Comma) {
             Some(self.expect_identifier()?)
@@ -452,6 +480,8 @@ impl<'src> Parser<'src> {
         self.expect(&TokenKind::In)?;
         let iterable = self.parse_expression()?;
         let body = self.parse_block()?;
+        self.for_depth -= 1;
+
         let span = start.merge(self.previous_span());
         Some(ForExpr {
             item,
@@ -545,8 +575,45 @@ impl<'src> Parser<'src> {
         self.advance(); // eat `fn`
         self.expect(&TokenKind::LParen)?;
         let params = self.parse_param_list()?;
+
+        // Structural limit: max 8 params per function/action
+        if params.len() > 8 {
+            self.error_at_current(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum 8 parameters per function, got {}",
+                    params.len()
+                ),
+            );
+        }
+
         self.expect(&TokenKind::RParen)?;
+
+        // Lambda nesting depth limit
+        self.lambda_depth += 1;
+        if self.lambda_depth > 3 {
+            self.error_at_current(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum lambda nesting depth is 3, got {}",
+                    self.lambda_depth
+                ),
+            );
+        }
+
+        // Expression-body lambdas are rejected with E602
+        if !self.check_exact(&TokenKind::LBrace) {
+            self.error_at_current(
+                ErrorCode::EXPRESSION_BODY_LAMBDA,
+                "lambdas require block body: fn(x) { x + 1 }",
+            );
+            self.lambda_depth -= 1;
+            return None;
+        }
+
         let body = self.parse_block()?;
+        self.lambda_depth -= 1;
+
         let span = start.merge(self.previous_span());
         Some(Expr::new(
             ExprKind::Lambda(Box::new(LambdaExpr { params, body, span })),
@@ -588,6 +655,20 @@ impl<'src> Parser<'src> {
     fn parse_record_literal(&mut self) -> Option<Expr> {
         let start = self.current_span();
         self.advance(); // eat `{`
+
+        // Record nesting depth limit
+        self.record_depth += 1;
+        if self.record_depth > 4 {
+            self.error_at(
+                ErrorCode::STRUCTURAL_LIMIT_EXCEEDED,
+                format!(
+                    "maximum record nesting depth is 4, got {}",
+                    self.record_depth
+                ),
+                start,
+            );
+        }
+
         self.skip_newlines();
         let mut entries = Vec::new();
         if !self.check_exact(&TokenKind::RBrace) {
@@ -617,6 +698,7 @@ impl<'src> Parser<'src> {
             }
         }
         self.expect(&TokenKind::RBrace)?;
+        self.record_depth -= 1;
         let span = start.merge(self.previous_span());
         Some(Expr::new(ExprKind::RecordLit(entries), span))
     }

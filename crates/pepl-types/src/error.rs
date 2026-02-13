@@ -64,6 +64,8 @@ impl ErrorCode {
     pub const BLOCK_COMMENT_USED: Self = Self(603);
     pub const UNDECLARED_CREDENTIAL: Self = Self(604);
     pub const CREDENTIAL_MODIFIED: Self = Self(605);
+    pub const EMPTY_STATE_BLOCK: Self = Self(606);
+    pub const STRUCTURAL_LIMIT_EXCEEDED: Self = Self(607);
 
     /// Get the category for this error code.
     pub fn category(self) -> ErrorCategory {

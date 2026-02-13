@@ -130,11 +130,11 @@
 
 ### 3.5 Parser Tests
 - [x] Test all canonical examples from `llm-generation-contract.md` (Counter, TodoList, UnitConverter, WeatherDashboard, PomodoroTimer, HabitTracker, QuizApp)
-- [ ] Test all edge cases from `grammar-edge-cases.md`
+- [x] Test all edge cases from `grammar-edge-cases.md`
 - [x] Test all operator precedence examples
 - [x] Test block ordering enforcement (E600)
 - [x] Test error recovery (multiple errors reported)
-- [ ] Test structural limits (lambda depth ≤ 3, record depth ≤ 4, expression depth ≤ 16, for depth ≤ 3, params ≤ 8)
+- [x] Test structural limits (lambda depth ≤ 3, record depth ≤ 4, expression depth ≤ 16, for depth ≤ 3, params ≤ 8)
 - [x] 100-iteration determinism test: same source → identical AST × 100
 
 ---
@@ -205,16 +205,16 @@
 ## Phase 5: Invariant Checker
 
 ### 5.1 Structural Validation
-- [ ] Enforce lambda nesting depth ≤ 3
-- [ ] Enforce record nesting depth ≤ 4
-- [ ] Enforce expression depth ≤ 16
-- [ ] Enforce `for` nesting depth ≤ 3
-- [ ] Enforce parameter count ≤ 8
+- [x] Enforce lambda nesting depth ≤ 3 *(enforced in parser)*
+- [x] Enforce record nesting depth ≤ 4 *(enforced in parser)*
+- [x] Enforce expression depth ≤ 16 *(enforced in parser)*
+- [x] Enforce `for` nesting depth ≤ 3 *(enforced in parser)*
+- [x] Enforce parameter count ≤ 8 *(enforced in parser)*
 - [ ] Detect and reject recursion (E502)
 - [ ] Validate invariant expressions don't reference derived fields
 
 ### 5.2 Invariant Checker Tests
-- [ ] Test each structural limit with at-limit and over-limit cases
+- [x] Test each structural limit with at-limit and over-limit cases *(covered in parser edge_case_tests)*
 - [ ] Test recursion detection
 - [ ] Test invariant referencing derived field → error
 - [ ] 100-iteration determinism test
