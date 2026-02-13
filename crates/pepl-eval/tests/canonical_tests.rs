@@ -10,7 +10,7 @@
 //! - Determinism (100-iteration)
 //! - Golden reference capture
 
-use pepl_eval::{EvalError, SpaceInstance, SurfaceNode};
+use pepl_eval::SpaceInstance;
 use pepl_lexer::Lexer;
 use pepl_parser::Parser;
 use pepl_stdlib::Value;
@@ -352,7 +352,10 @@ fn unit_converter_render() {
     // Check km → miles: 100 * 0.621371 = 62.14 (rounded to 2dp)
     let km_text = &nodes[0].children[1];
     assert_eq!(km_text.component, "Text");
-    assert_eq!(km_text.props.get("value"), Some(&s("km to miles: 62.14")));
+    assert_eq!(
+        km_text.props.get("value"),
+        Some(&s("km to miles: 62.14"))
+    );
 
     // Check miles → km: 100 * 1.60934 = 160.93 (rounded to 2dp)
     let miles_text = &nodes[0].children[2];
@@ -459,7 +462,7 @@ fn weather_dashboard_fetch_unmocked() {
     // Without mock responses, http.get returns Err("unmocked_call")
     si.dispatch("fetch_weather", vec![]).unwrap();
     assert_eq!(si.get_state("loading"), Some(&b(false)));
-    // error_message should contain the unmocked message
+    // error_message should contain the unmocked message  
     let err = si.get_state("error_message").unwrap().clone();
     if let Value::String(msg) = err {
         assert!(msg.contains("unmocked"), "error_message = {msg}");
@@ -473,9 +476,9 @@ fn weather_dashboard_fetch_mocked_success() {
     si.set_mock_responses(vec![pepl_eval::MockResponse {
         module: "http".into(),
         function: "get".into(),
-        response: Value::Result(Box::new(pepl_stdlib::ResultValue::Ok(s(
-            "{\"temp\": \"25\", \"description\": \"Sunny\"}",
-        )))),
+        response: Value::Result(Box::new(pepl_stdlib::ResultValue::Ok(
+            s("{\"temp\": \"25\", \"description\": \"Sunny\"}")
+        ))),
     }]);
 
     si.dispatch("fetch_weather", vec![]).unwrap();
@@ -491,9 +494,9 @@ fn weather_dashboard_fetch_mocked_error() {
     si.set_mock_responses(vec![pepl_eval::MockResponse {
         module: "http".into(),
         function: "get".into(),
-        response: Value::Result(Box::new(pepl_stdlib::ResultValue::Err(s(
-            "Network timeout",
-        )))),
+        response: Value::Result(Box::new(pepl_stdlib::ResultValue::Err(
+            s("Network timeout"),
+        ))),
     }]);
 
     si.dispatch("fetch_weather", vec![]).unwrap();
@@ -510,10 +513,7 @@ fn weather_dashboard_render_initial() {
     // (no loading text, no error text)
     let children = &nodes[0].children;
     assert!(children.len() >= 3);
-    assert_eq!(
-        children[0].props.get("value"),
-        Some(&s("Weather Dashboard"))
-    );
+    assert_eq!(children[0].props.get("value"), Some(&s("Weather Dashboard")));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -620,8 +620,7 @@ fn pomodoro_work_complete() {
     // Set seconds_left to 1 manually by ticking down
     // Simulate by dispatching a helper action... or set directly
     // Instead, we use a shorter version:
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space PomodoroShort {
   state {
     mode: string = "work"
@@ -653,8 +652,7 @@ space PomodoroShort {
 
   view main() -> Surface { Column { } { } }
 }
-"#,
-    );
+"#);
     let mut si2 = SpaceInstance::new(&prog).unwrap();
     assert_eq!(si2.get_state("seconds_left"), Some(&num(1.0)));
 
@@ -688,7 +686,10 @@ fn pomodoro_render() {
         Some(&s("Pomodoro Timer"))
     );
     // Time display: 1500s = 25:00
-    assert_eq!(nodes[0].children[1].props.get("value"), Some(&s("25:00")));
+    assert_eq!(
+        nodes[0].children[1].props.get("value"),
+        Some(&s("25:00"))
+    );
     assert_eq!(
         nodes[0].children[2].props.get("value"),
         Some(&s("Mode: idle"))
@@ -776,7 +777,8 @@ fn habit_tracker_add_habit() {
 #[test]
 fn habit_tracker_mark_done() {
     let mut si = instance(HABIT_TRACKER_SOURCE);
-    si.dispatch("update_new_habit", vec![s("Read")]).unwrap();
+    si.dispatch("update_new_habit", vec![s("Read")])
+        .unwrap();
     si.dispatch("add_habit", vec![]).unwrap();
     si.dispatch("mark_done", vec![num(0.0)]).unwrap();
 
@@ -930,13 +932,15 @@ fn quiz_app_render_first_question() {
     // Should show Q1 text and 3 option buttons (no answer feedback yet)
     let children = &nodes[0].children;
     // "Question 1 of 3", "What is 2 + 2?", Button "3", Button "4", Button "5"
-    assert!(
-        children.len() >= 5,
-        "expected at least 5 children, got {}",
-        children.len()
+    assert!(children.len() >= 5, "expected at least 5 children, got {}", children.len());
+    assert_eq!(
+        children[0].props.get("value"),
+        Some(&s("Question 1 of 3"))
     );
-    assert_eq!(children[0].props.get("value"), Some(&s("Question 1 of 3")));
-    assert_eq!(children[1].props.get("value"), Some(&s("What is 2 + 2?")));
+    assert_eq!(
+        children[1].props.get("value"),
+        Some(&s("What is 2 + 2?"))
+    );
 }
 
 #[test]
@@ -954,8 +958,14 @@ fn quiz_app_render_complete() {
     let children = &nodes[0].children;
     // Should show "Quiz Complete!" and "Score: 3 / 3"
     assert_eq!(children.len(), 2);
-    assert_eq!(children[0].props.get("value"), Some(&s("Quiz Complete!")));
-    assert_eq!(children[1].props.get("value"), Some(&s("Score: 3 / 3")));
+    assert_eq!(
+        children[0].props.get("value"),
+        Some(&s("Quiz Complete!"))
+    );
+    assert_eq!(
+        children[1].props.get("value"),
+        Some(&s("Score: 3 / 3"))
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -964,8 +974,7 @@ fn quiz_app_render_complete() {
 
 #[test]
 fn test_runner_simple_pass() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Counter {
   state { count: number = 0 }
   action increment() { set count = count + 1 }
@@ -979,8 +988,7 @@ tests {
     assert count == 2
   }
 }
-"#,
-    );
+"#);
     let summary = pepl_eval::run_tests(&prog).unwrap();
     assert_eq!(summary.passed, 1);
     assert_eq!(summary.failed, 0);
@@ -988,8 +996,7 @@ tests {
 
 #[test]
 fn test_runner_assert_failure() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Counter {
   state { count: number = 0 }
   action increment() { set count = count + 1 }
@@ -1002,22 +1009,16 @@ tests {
     assert count == 99, "expected 99"
   }
 }
-"#,
-    );
+"#);
     let summary = pepl_eval::run_tests(&prog).unwrap();
     assert_eq!(summary.passed, 0);
     assert_eq!(summary.failed, 1);
-    assert!(summary.results[0]
-        .error
-        .as_ref()
-        .unwrap()
-        .contains("expected 99"));
+    assert!(summary.results[0].error.as_ref().unwrap().contains("expected 99"));
 }
 
 #[test]
 fn test_runner_multiple_tests() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Counter {
   state { count: number = 0 }
   action increment() { set count = count + 1 }
@@ -1043,8 +1044,7 @@ tests {
     assert count == 1
   }
 }
-"#,
-    );
+"#);
     let summary = pepl_eval::run_tests(&prog).unwrap();
     assert_eq!(summary.passed, 3);
     assert_eq!(summary.failed, 0);
@@ -1052,8 +1052,7 @@ tests {
 
 #[test]
 fn test_runner_action_with_params() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space TodoList {
   state {
     todos: list<{ text: string, done: bool }> = []
@@ -1082,8 +1081,7 @@ tests {
     assert input == ""
   }
 }
-"#,
-    );
+"#);
     let summary = pepl_eval::run_tests(&prog).unwrap();
     assert_eq!(summary.passed, 1);
     assert_eq!(summary.failed, 0);
@@ -1091,8 +1089,7 @@ tests {
 
 #[test]
 fn test_runner_fresh_state_per_test() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Counter {
   state { count: number = 0 }
   action increment() { set count = count + 1 }
@@ -1112,8 +1109,7 @@ tests {
     assert count == 1
   }
 }
-"#,
-    );
+"#);
     let summary = pepl_eval::run_tests(&prog).unwrap();
     assert_eq!(summary.passed, 2);
     assert_eq!(summary.failed, 0);
@@ -1125,8 +1121,7 @@ tests {
 
 #[test]
 fn game_loop_update() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Timer {
   state {
     elapsed: number = 0
@@ -1138,8 +1133,7 @@ space Timer {
     set elapsed = elapsed + dt
   }
 }
-"#,
-    );
+"#);
     let mut si = SpaceInstance::new(&prog).unwrap();
     assert_eq!(si.get_state("elapsed"), Some(&num(0.0)));
 
@@ -1154,8 +1148,7 @@ space Timer {
 
 #[test]
 fn game_loop_handle_event() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Game {
   state {
     last_event: string = "none"
@@ -1167,8 +1160,7 @@ space Game {
     set last_event = "received"
   }
 }
-"#,
-    );
+"#);
     let mut si = SpaceInstance::new(&prog).unwrap();
     assert_eq!(si.get_state("last_event"), Some(&s("none")));
 
@@ -1186,8 +1178,7 @@ space Game {
 
 #[test]
 fn game_loop_update_with_invariant() {
-    let prog = parse(
-        r#"
+    let prog = parse(r#"
 space Timer {
   state {
     elapsed: number = 0
@@ -1201,8 +1192,7 @@ space Timer {
     set elapsed = elapsed + dt
   }
 }
-"#,
-    );
+"#);
     let mut si = SpaceInstance::new(&prog).unwrap();
 
     let r = si.call_update(0.5).unwrap();
@@ -1238,7 +1228,10 @@ fn determinism_expression_eval_100_iterations() {
         si.dispatch("set_value", vec![s("100")]).unwrap();
         let nodes = si.render().unwrap();
         let km_text = &nodes[0].children[1];
-        assert_eq!(km_text.props.get("value"), Some(&s("km to miles: 62.14")));
+        assert_eq!(
+            km_text.props.get("value"),
+            Some(&s("km to miles: 62.14"))
+        );
     }
 }
 

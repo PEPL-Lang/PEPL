@@ -566,7 +566,7 @@ impl<'a> Compiler<'a> {
         code_section.function(&invoke_func);
         self.function_table
             .insert("invoke_lambda".to_string(), invoke_lambda_idx);
-        next_idx += 1;
+        let mut _next_idx = next_idx + 1;
 
         // Now compile deferred lambda bodies
         // Each lambda has signature: (env_ptr: i32, arg_ptr: i32) -> i32
@@ -614,7 +614,7 @@ impl<'a> Compiler<'a> {
 
             self.merge_user_data(&lam_ctx);
             code_section.function(&Self::finalize_function(lam_scratch, &lam_ctx));
-            next_idx += 1;
+            _next_idx += 1;
         }
 
         Ok((func_section, code_section))

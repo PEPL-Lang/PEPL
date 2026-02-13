@@ -48,6 +48,7 @@ fn assert_error(source: &str, expected_code: ErrorCode) {
     );
 }
 
+#[allow(dead_code)]
 fn assert_n_errors(source: &str, n: usize) {
     let errors = check(source);
     assert_eq!(

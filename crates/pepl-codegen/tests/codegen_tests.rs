@@ -95,9 +95,8 @@ fn get_exports(wasm: &[u8]) -> Vec<(String, ExternalKind)> {
     for payload in WasmParser::new(0).parse_all(wasm) {
         if let Ok(Payload::ExportSection(reader)) = payload {
             for export in reader {
-                if let Ok(exp) = export {
-                    exports.push((exp.name.to_string(), exp.kind));
-                }
+                let exp = export.expect("valid export");
+                exports.push((exp.name.to_string(), exp.kind));
             }
         }
     }
