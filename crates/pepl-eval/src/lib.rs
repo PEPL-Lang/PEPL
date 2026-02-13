@@ -7,8 +7,10 @@ pub mod env;
 pub mod error;
 pub mod evaluator;
 pub mod space;
+pub mod test_runner;
 
 pub use env::Environment;
 pub use error::{EvalError, EvalResult};
 pub use evaluator::Evaluator;
 pub use space::{ActionResult, SpaceInstance, SurfaceNode};
+pub use test_runner::{run_tests, MockResponse, TestResult, TestRunSummary};

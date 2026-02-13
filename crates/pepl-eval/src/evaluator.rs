@@ -19,6 +19,9 @@ pub struct Evaluator {
     pub log_output: Vec<String>,
     /// Action names registered in the space (for resolving action references).
     pub action_names: Vec<String>,
+    /// Mock capability responses (module, function) → response Value.
+    /// Used by the test runner for `with_responses` blocks.
+    pub mock_responses: Vec<(String, String, Value)>,
 }
 
 impl Evaluator {
@@ -30,6 +33,7 @@ impl Evaluator {
             gas_limit,
             log_output: Vec::new(),
             action_names: Vec::new(),
+            mock_responses: Vec::new(),
         }
     }
 
@@ -707,11 +711,16 @@ impl Evaluator {
             "convert" => convert::ConvertModule.call(function, args),
             "json" => json::JsonModule.call(function, args),
             "timer" => timer::TimerModule.call(function, args),
-            // Capability modules — return Err for unmocked calls
+            // Capability modules — check mock responses first, then return Err for unmocked calls
             "http" | "storage" | "location" | "notifications" | "clipboard" | "share" => {
-                Ok(Value::Result(Box::new(ResultValue::Err(Value::String(
-                    format!("unmocked capability call: {module}.{function}"),
-                )))))
+                // Check if there's a mock response available
+                if let Some(response) = self.find_mock_response(module, function) {
+                    Ok(response)
+                } else {
+                    Ok(Value::Result(Box::new(ResultValue::Err(Value::String(
+                        format!("unmocked capability call: {module}.{function}"),
+                    )))))
+                }
             }
             _ => {
                 return Err(EvalError::UnknownFunction(format!(
@@ -721,6 +730,18 @@ impl Evaluator {
         };
 
         result.map_err(|e| EvalError::StdlibError(e.to_string()))
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Mock response lookup
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// Find a mock response for a capability call.
+    fn find_mock_response(&self, module: &str, function: &str) -> Option<Value> {
+        self.mock_responses
+            .iter()
+            .find(|(m, f, _)| m == module && f == function)
+            .map(|(_, _, v)| v.clone())
     }
 
     // ══════════════════════════════════════════════════════════════════════

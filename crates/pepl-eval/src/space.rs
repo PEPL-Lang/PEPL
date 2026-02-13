@@ -5,6 +5,7 @@
 
 use crate::error::{EvalError, EvalResult};
 use crate::evaluator::Evaluator;
+use crate::test_runner::MockResponse;
 use pepl_stdlib::{ResultValue, Value};
 use pepl_types::ast::*;
 use std::collections::BTreeMap;
@@ -49,6 +50,12 @@ pub struct SpaceInstance {
     views: Vec<ViewDecl>,
     /// Credential values (set by host before dispatch).
     credentials: BTreeMap<String, Value>,
+    /// Update declaration (optional game loop).
+    update_decl: Option<UpdateDecl>,
+    /// HandleEvent declaration (optional game loop).
+    handle_event_decl: Option<HandleEventDecl>,
+    /// Mock capability responses for test runner.
+    mock_responses: Vec<MockResponse>,
 }
 
 impl SpaceInstance {
@@ -116,6 +123,9 @@ impl SpaceInstance {
             actions: body.actions.clone(),
             views: body.views.clone(),
             credentials,
+            update_decl: body.update.clone(),
+            handle_event_decl: body.handle_event.clone(),
+            mock_responses: Vec::new(),
         };
 
         // Compute initial derived fields
@@ -449,6 +459,137 @@ impl SpaceInstance {
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // Test runner helpers
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// Install mock capability responses (used by test runner).
+    pub fn set_mock_responses(&mut self, mocks: Vec<MockResponse>) {
+        // Propagate to evaluator for stdlib dispatch
+        self.eval.mock_responses = mocks
+            .iter()
+            .map(|m| (m.module.clone(), m.function.clone(), m.response.clone()))
+            .collect();
+        self.mock_responses = mocks;
+    }
+
+    /// Evaluate an expression via the internal evaluator (public for test runner).
+    pub fn eval_expr_public(&mut self, expr: &Expr) -> EvalResult<Value> {
+        self.eval.eval_expr(expr)
+    }
+
+    /// Execute a statement via the internal evaluator (public for test runner).
+    pub fn eval_stmt_public(&mut self, stmt: &Stmt) -> EvalResult<Value> {
+        self.eval.eval_stmt(stmt)
+    }
+
+    /// Define a variable in the current environment scope (public for test runner).
+    pub fn define_in_env(&mut self, name: &str, value: Value) {
+        self.eval.env.define(name, value);
+    }
+
+    /// Push a new scope in the environment (public for test runner).
+    pub fn push_scope(&mut self) {
+        self.eval.env.push_scope();
+    }
+
+    /// Pop the innermost scope (public for test runner).
+    pub fn pop_scope(&mut self) {
+        self.eval.env.pop_scope();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Game loop
+    // ══════════════════════════════════════════════════════════════════════
+
+    /// Call `update(dt)` — game loop tick.
+    ///
+    /// Like an action dispatch: atomic, with invariant checking and rollback.
+    pub fn call_update(&mut self, dt: f64) -> EvalResult<ActionResult> {
+        let update = self
+            .update_decl
+            .clone()
+            .ok_or_else(|| EvalError::Runtime("space has no update() declaration".into()))?;
+
+        let snapshot = self.eval.env.global_bindings().clone();
+
+        self.eval.env.push_scope();
+        self.eval
+            .env
+            .define(&update.param.name.name, Value::Number(dt));
+
+        let exec_result = self.eval.eval_block(&update.body);
+        self.eval.env.pop_scope();
+
+        match exec_result {
+            Ok(_) => {}
+            Err(EvalError::Return(_)) => {}
+            Err(e) => return Err(e),
+        }
+
+        self.recompute_derived()?;
+
+        match self.check_invariants() {
+            Ok(()) => Ok(ActionResult {
+                committed: true,
+                invariant_error: None,
+            }),
+            Err(msg) => {
+                self.eval.env.restore_global(snapshot);
+                self.recompute_derived()?;
+                Ok(ActionResult {
+                    committed: false,
+                    invariant_error: Some(msg),
+                })
+            }
+        }
+    }
+
+    /// Call `handleEvent(event)` — game loop event handler.
+    ///
+    /// Like an action dispatch: atomic, with invariant checking and rollback.
+    pub fn call_handle_event(&mut self, event: Value) -> EvalResult<ActionResult> {
+        let handler = self
+            .handle_event_decl
+            .clone()
+            .ok_or_else(|| {
+                EvalError::Runtime("space has no handleEvent() declaration".into())
+            })?;
+
+        let snapshot = self.eval.env.global_bindings().clone();
+
+        self.eval.env.push_scope();
+        self.eval
+            .env
+            .define(&handler.param.name.name, event);
+
+        let exec_result = self.eval.eval_block(&handler.body);
+        self.eval.env.pop_scope();
+
+        match exec_result {
+            Ok(_) => {}
+            Err(EvalError::Return(_)) => {}
+            Err(e) => return Err(e),
+        }
+
+        self.recompute_derived()?;
+
+        match self.check_invariants() {
+            Ok(()) => Ok(ActionResult {
+                committed: true,
+                invariant_error: None,
+            }),
+            Err(msg) => {
+                self.eval.env.restore_global(snapshot);
+                self.recompute_derived()?;
+                Ok(ActionResult {
+                    committed: false,
+                    invariant_error: Some(msg),
+                })
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // Surface serialization
     // ══════════════════════════════════════════════════════════════════════
 
@@ -481,6 +622,11 @@ impl SpaceInstance {
     }
 
     fn value_to_json(val: &Value) -> serde_json::Value {
+        Self::value_to_json_public(val)
+    }
+
+    /// Convert a Value to JSON (public for golden reference generation).
+    pub fn value_to_json_public(val: &Value) -> serde_json::Value {
         match val {
             Value::Number(n) => {
                 if n.fract() == 0.0 && n.is_finite() && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {

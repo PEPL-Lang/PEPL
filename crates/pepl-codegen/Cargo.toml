@@ -10,3 +10,8 @@ pepl-types = { path = "../pepl-types" }
 thiserror.workspace = true
 wasm-encoder = "0.225"
 wasmparser = "0.225"
+
+[dev-dependencies]
+pepl-lexer = { path = "../pepl-lexer" }
+pepl-parser = { path = "../pepl-parser" }
+wasmparser = "0.225"

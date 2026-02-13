@@ -353,6 +353,15 @@ impl StdlibRegistry {
                 list_t(),
             ),
         );
+        // list.set is a spec alias for list.update
+        self.add(
+            "list",
+            "set",
+            Self::sig(
+                vec![("items", list_t()), ("index", Number), ("value", t())],
+                list_t(),
+            ),
+        );
         self.add(
             "list",
             "slice",
@@ -663,12 +672,18 @@ impl StdlibRegistry {
         self.add("http", "delete", Self::sig(vec![("url", String)], result_ty(String)));
     }
 
-    /// storage: 3 functions (capability: storage)
+    /// storage: 4 functions (capability: storage)
     fn register_storage(&mut self) {
         use Type::*;
         self.add("storage", "get", Self::sig(vec![("key", String)], Nullable(Box::new(String))));
         self.add("storage", "set", Self::sig(vec![("key", String), ("value", String)], Nil));
         self.add("storage", "remove", Self::sig(vec![("key", String)], Nil));
+        self.add("storage", "delete", Self::sig(vec![("key", String)], Nil));
+        self.add(
+            "storage",
+            "keys",
+            Self::sig(vec![], List(Box::new(String))),
+        );
     }
 
     /// location: 1 function (capability: location)
