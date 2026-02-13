@@ -7,10 +7,12 @@
 //! - E201: type mismatch
 //! - E202: wrong argument count
 //! - E210: non-exhaustive match
+//! - E300: invariant references derived field (unreachable)
 //! - E400: undeclared capability
 //! - E401: capability unavailable
 //! - E500: variable already declared
 //! - E501: `set` outside action / capability used in view
+//! - E502: recursion not allowed (action calls itself)
 //! - E601: derived field modification
 //! - E604: undeclared credential
 //! - E605: credential modification
@@ -50,6 +52,8 @@ pub struct TypeChecker<'a> {
     credentials: HashMap<String, Type>,
     /// Capability module mapping (e.g. "http" → "http").
     capability_modules: HashMap<&'static str, &'static str>,
+    /// Name of the action currently being checked (for recursion detection).
+    current_action_name: Option<String>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -68,6 +72,7 @@ impl<'a> TypeChecker<'a> {
             optional_capabilities: HashSet::new(),
             credentials: HashMap::new(),
             capability_modules: stdlib::capability_modules(),
+            current_action_name: None,
         }
     }
 
@@ -319,6 +324,10 @@ impl<'a> TypeChecker<'a> {
     fn check_action(&mut self, action: &ActionDecl) {
         self.env.push_scope(ScopeKind::Action);
 
+        // Track current action name for recursion detection (E502)
+        let prev_action = self.current_action_name.take();
+        self.current_action_name = Some(action.name.name.clone());
+
         // Register parameters
         for param in &action.params {
             let ty = self.resolve_type_annotation(&param.type_ann);
@@ -332,6 +341,9 @@ impl<'a> TypeChecker<'a> {
         }
 
         self.check_block(&action.body);
+
+        // Restore previous action context
+        self.current_action_name = prev_action;
         self.env.pop_scope();
     }
 
@@ -756,6 +768,18 @@ impl<'a> TypeChecker<'a> {
 
             // ── Identifiers ──
             ExprKind::Identifier(name) => {
+                // E300: invariant expressions must not reference derived fields
+                if self.env.in_invariant() && self.derived_fields.contains_key(name) {
+                    self.error(
+                        ErrorCode::INVARIANT_UNREACHABLE,
+                        format!(
+                            "invariant cannot reference derived field '{}' — derived fields are recomputed after actions, so the invariant would never see violations",
+                            name
+                        ),
+                        expr.span,
+                    );
+                }
+
                 if let Some(ty) = self.env.lookup(name) {
                     ty.clone()
                 } else {
@@ -860,6 +884,25 @@ impl<'a> TypeChecker<'a> {
     // ── Call checking ─────────────────────────────────────────────────────
 
     fn check_unqualified_call(&mut self, name: &Ident, args: &[Expr], span: Span) -> Type {
+        // E502: detect direct recursion — action calling itself
+        if let Some(ref current) = self.current_action_name {
+            if name.name == *current {
+                self.error(
+                    ErrorCode::RECURSION_NOT_ALLOWED,
+                    format!(
+                        "action '{}' cannot call itself — recursion is not allowed in PEPL",
+                        name.name
+                    ),
+                    span,
+                );
+                // Still type-check arguments for further diagnostics
+                for arg in args {
+                    self.check_expr(arg);
+                }
+                return Type::Void;
+            }
+        }
+
         // Check if it's an action call (inside test blocks)
         if self.action_names.contains(&name.name) {
             // Type-check arguments but return void

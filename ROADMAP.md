@@ -198,7 +198,7 @@
 - [ ] Test invariant unreachable (E300) and unknown field reference (E301)
 - [ ] Test nil narrowing works correctly
 - [x] Test all canonical examples type-check successfully
-- [ ] 100-iteration determinism test
+- [x] 100-iteration determinism test
 
 ---
 
@@ -210,14 +210,17 @@
 - [x] Enforce expression depth ≤ 16 *(enforced in parser)*
 - [x] Enforce `for` nesting depth ≤ 3 *(enforced in parser)*
 - [x] Enforce parameter count ≤ 8 *(enforced in parser)*
-- [ ] Detect and reject recursion (E502)
-- [ ] Validate invariant expressions don't reference derived fields
+- [x] Detect and reject recursion (E502) *(folded into type checker)*
+- [x] Validate invariant expressions don't reference derived fields (E300) *(folded into type checker)*
 
 ### 5.2 Invariant Checker Tests
 - [x] Test each structural limit with at-limit and over-limit cases *(covered in parser edge_case_tests)*
-- [ ] Test recursion detection
-- [ ] Test invariant referencing derived field → error
-- [ ] 100-iteration determinism test
+- [x] Test recursion detection (direct self-recursion, nested in if/for)
+- [x] Test invariant referencing derived field → error (single, compound, multiple derived)
+- [x] Test valid invariants (state-only, no derived, stdlib calls)
+- [x] Test derived fields OK in actions and views
+- [x] Test combined E300 + E502 in same program
+- [x] 100-iteration determinism test
 
 ---
 
