@@ -80,7 +80,7 @@ cargo clippy --workspace -- -D warnings
 
 ## Cross-Repo Coordination
 
-This repo is part of the PEPL project alongside [`pepl-stdlib`](https://github.com/PEPL-Lang/PEPL-STDLIB) and [`pepl-ui`](https://github.com/PEPL-Lang/PEPL-UI). See `ORCHESTRATION.md` at the workspace root for the cross-repo build sequence.
+This repo is part of the PEPL project alongside [`pepl-stdlib`](https://github.com/PEPL-Lang/PEPL-STDLIB) and [`pepl-ui`](https://github.com/PEPL-Lang/PEPL-UI). See `ORCHESTRATION.md` in the [`.github`](https://github.com/PEPL-Lang/.github) repo for the cross-repo build sequence.
 
 ## License
 

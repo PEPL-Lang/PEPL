@@ -2,7 +2,7 @@
 
 > PEPL compiler: Lexer → Parser → Type Checker → Invariant Checker → Evaluator → WASM Codegen.
 > Written in Rust, compiles to WASM (runs in browser Web Worker).
-> See `ORCHESTRATION.md` for cross-repo sequencing.
+> See `ORCHESTRATION.md` in the [`.github`](https://github.com/PEPL-Lang/.github) repo for cross-repo sequencing.
 
 ---
 
