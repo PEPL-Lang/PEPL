@@ -8,6 +8,6 @@ authors.workspace = true
 description = "PEPL parser: token stream to AST"
 
 [dependencies]
-pepl-types = { version = "0.1.1", path = "../pepl-types" }
-pepl-lexer = { version = "0.1.1", path = "../pepl-lexer" }
+pepl-types = { version = "0.1.2", path = "../pepl-types" }
+pepl-lexer = { version = "0.1.2", path = "../pepl-lexer" }
 thiserror.workspace = true

@@ -11,8 +11,8 @@ description = "PEPL compiler packaged as a WASM module for browser environments"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pepl-compiler = { version = "0.1.1", path = "../pepl-compiler" }
-pepl-types = { version = "0.1.1", path = "../pepl-types" }
+pepl-compiler = { version = "0.1.2", path = "../pepl-compiler" }
+pepl-types = { version = "0.1.2", path = "../pepl-types" }
 wasm-bindgen = "0.2"
 serde.workspace = true
 serde_json.workspace = true

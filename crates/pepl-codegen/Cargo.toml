@@ -8,7 +8,7 @@ authors.workspace = true
 description = "PEPL WASM code generator: verified AST to .wasm binary"
 
 [dependencies]
-pepl-types = { version = "0.1.1", path = "../pepl-types" }
+pepl-types = { version = "0.1.2", path = "../pepl-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror.workspace = true
@@ -16,7 +16,7 @@ wasm-encoder = "0.225"
 wasmparser = "0.225"
 
 [dev-dependencies]
-pepl-lexer = { version = "0.1.1", path = "../pepl-lexer" }
-pepl-parser = { version = "0.1.1", path = "../pepl-parser" }
+pepl-lexer = { version = "0.1.2", path = "../pepl-lexer" }
+pepl-parser = { version = "0.1.2", path = "../pepl-parser" }
 wasmparser = "0.225"
 wasmi = "0.42"

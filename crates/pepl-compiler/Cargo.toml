@@ -8,17 +8,17 @@ authors.workspace = true
 description = "PEPL compiler: orchestrates the full compilation pipeline"
 
 [dependencies]
-pepl-types = { version = "0.1.1", path = "../pepl-types" }
-pepl-lexer = { version = "0.1.1", path = "../pepl-lexer" }
-pepl-parser = { version = "0.1.1", path = "../pepl-parser" }
-pepl-codegen = { version = "0.1.1", path = "../pepl-codegen" }
+pepl-types = { version = "0.1.2", path = "../pepl-types" }
+pepl-lexer = { version = "0.1.2", path = "../pepl-lexer" }
+pepl-parser = { version = "0.1.2", path = "../pepl-parser" }
+pepl-codegen = { version = "0.1.2", path = "../pepl-codegen" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
-pepl-eval = { version = "0.1.1", path = "../pepl-eval" }
-pepl-lexer = { version = "0.1.1", path = "../pepl-lexer" }
-pepl-stdlib = { version = "0.1.1", path = "../../../pepl-stdlib" }
+pepl-eval = { version = "0.1.2", path = "../pepl-eval" }
+pepl-lexer = { version = "0.1.2", path = "../pepl-lexer" }
+pepl-stdlib = { version = "0.1.2", path = "../../../pepl-stdlib" }
 wasmi = "0.42"

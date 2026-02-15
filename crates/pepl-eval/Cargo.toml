@@ -8,12 +8,12 @@ authors.workspace = true
 description = "PEPL tree-walking evaluator: reference implementation for execution semantics"
 
 [dependencies]
-pepl-types = { version = "0.1.1", path = "../pepl-types" }
-pepl-parser = { version = "0.1.1", path = "../pepl-parser" }
-pepl-stdlib = { version = "0.1.1", path = "../../../pepl-stdlib" }
+pepl-types = { version = "0.1.2", path = "../pepl-types" }
+pepl-parser = { version = "0.1.2", path = "../pepl-parser" }
+pepl-stdlib = { version = "0.1.2", path = "../../../pepl-stdlib" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-pepl-lexer = { version = "0.1.1", path = "../pepl-lexer" }
+pepl-lexer = { version = "0.1.2", path = "../pepl-lexer" }
