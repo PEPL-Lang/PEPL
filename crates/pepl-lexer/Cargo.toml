@@ -3,8 +3,10 @@ name = "pepl-lexer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
 description = "PEPL lexer: source text to token stream"
 
 [dependencies]
-pepl-types = { path = "../pepl-types" }
+pepl-types = { version = "0.1.0", path = "../pepl-types" }
 thiserror.workspace = true

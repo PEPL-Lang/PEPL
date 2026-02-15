@@ -3,20 +3,22 @@ name = "pepl-compiler"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
 description = "PEPL compiler: orchestrates the full compilation pipeline"
 
 [dependencies]
-pepl-types = { path = "../pepl-types" }
-pepl-lexer = { path = "../pepl-lexer" }
-pepl-parser = { path = "../pepl-parser" }
-pepl-codegen = { path = "../pepl-codegen" }
+pepl-types = { version = "0.1.0", path = "../pepl-types" }
+pepl-lexer = { version = "0.1.0", path = "../pepl-lexer" }
+pepl-parser = { version = "0.1.0", path = "../pepl-parser" }
+pepl-codegen = { version = "0.1.0", path = "../pepl-codegen" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
-pepl-eval = { path = "../pepl-eval" }
-pepl-lexer = { path = "../pepl-lexer" }
-pepl-stdlib = { path = "../../../pepl-stdlib" }
+pepl-eval = { version = "0.1.0", path = "../pepl-eval" }
+pepl-lexer = { version = "0.1.0", path = "../pepl-lexer" }
+pepl-stdlib = { version = "0.1.0", path = "../../../pepl-stdlib" }
 wasmi = "0.42"

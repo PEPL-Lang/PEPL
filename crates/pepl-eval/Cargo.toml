@@ -3,15 +3,17 @@ name = "pepl-eval"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
 description = "PEPL tree-walking evaluator: reference implementation for execution semantics"
 
 [dependencies]
-pepl-types = { path = "../pepl-types" }
-pepl-parser = { path = "../pepl-parser" }
-pepl-stdlib = { path = "../../../pepl-stdlib" }
+pepl-types = { version = "0.1.0", path = "../pepl-types" }
+pepl-parser = { version = "0.1.0", path = "../pepl-parser" }
+pepl-stdlib = { version = "0.1.0", path = "../../../pepl-stdlib" }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-pepl-lexer = { path = "../pepl-lexer" }
+pepl-lexer = { version = "0.1.0", path = "../pepl-lexer" }

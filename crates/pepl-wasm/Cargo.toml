@@ -3,14 +3,16 @@ name = "pepl-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
 description = "PEPL compiler packaged as a WASM module for browser environments"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pepl-compiler = { path = "../pepl-compiler" }
-pepl-types = { path = "../pepl-types" }
+pepl-compiler = { version = "0.1.0", path = "../pepl-compiler" }
+pepl-types = { version = "0.1.0", path = "../pepl-types" }
 wasm-bindgen = "0.2"
 serde.workspace = true
 serde_json.workspace = true
