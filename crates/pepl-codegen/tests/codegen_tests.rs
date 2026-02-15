@@ -1407,3 +1407,68 @@ space T {
         );
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Nested set — 3+ level depth
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn nested_set_3_level_compiles() {
+    // 3-level nested set: set settings.theme.shade = "red"
+    // Note: avoid `color` as a field name — it's the KwColor keyword.
+    let source = r#"
+space Settings {
+  state {
+    settings: { theme: { shade: string, size: number }, lang: string } = { theme: { shade: "blue", size: 12 }, lang: "en" }
+  }
+  action change_shade() {
+    set settings.theme.shade = "red"
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#;
+    let wasm = compile_source(source);
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn nested_set_2_level_still_compiles() {
+    // Ensure the 2-level case still works after refactor
+    let source = r#"
+space Config {
+  state {
+    prefs: { volume: number, muted: bool } = { volume: 50, muted: false }
+  }
+  action mute() {
+    set prefs.muted = true
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#;
+    let wasm = compile_source(source);
+    assert!(is_valid_wasm(&wasm));
+}
+
+#[test]
+fn nested_set_3_level_deterministic() {
+    let source = r#"
+space DeepNest {
+  state {
+    data: { inner: { value: number, label: string }, count: number } = { inner: { value: 0, label: "x" }, count: 10 }
+  }
+  action update_value() {
+    set data.inner.value = 42
+  }
+  view main() -> Surface { Column { } { } }
+}
+"#;
+    let reference = compile_source(source);
+    for i in 0..100 {
+        let wasm = compile_source(source);
+        assert_eq!(
+            wasm, reference,
+            "3-level nested set WASM bytes differ at iteration {}",
+            i
+        );
+    }
+}

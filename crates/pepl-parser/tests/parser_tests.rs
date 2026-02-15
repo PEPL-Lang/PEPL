@@ -1486,3 +1486,51 @@ fn test_parse_determinism_100_iterations() {
         assert_eq!(result.errors.total_errors, first_errors);
     }
 }
+
+#[test]
+fn test_nested_record_type_no_keyword_clash() {
+    // Nested record type in state — works when field names avoid keywords.
+    // Note: `color` is the KwColor keyword and cannot be used as a field name
+    // in record type positions (the parser's expect_identifier() fails on keywords).
+    let source = r#"space T {
+  state {
+    settings: { theme: { clr: string, size: number }, lang: string } = { theme: { clr: "blue", size: 12 }, lang: "en" }
+  }
+}"#;
+    let result = parse(source);
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "should parse without errors");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_named_type_workaround() {
+    // Use named types (type aliases) to flatten record type nesting
+    let source = r#"space T {
+  type Theme = { clr: string, size: number }
+  type Settings = { theme: Theme, lang: string }
+  state {
+    settings: Settings = { theme: { clr: "blue", size: 12 }, lang: "en" }
+  }
+}"#;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "should parse without errors");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_3_level_nested_set_with_named_types() {
+    let source = r#"space T {
+  type Theme = { clr: string, size: number }
+  type Settings = { theme: Theme, lang: string }
+  state {
+    settings: Settings = { theme: { clr: "blue", size: 12 }, lang: "en" }
+  }
+  action changeColor(c: string) {
+    set settings.theme.clr = c
+  }
+}"#;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "should parse without errors");
+    assert!(result.program.is_some());
+}
