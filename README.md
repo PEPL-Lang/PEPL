@@ -1,6 +1,7 @@
 # pepl
 
 [![crates.io](https://img.shields.io/crates/v/pepl-compiler.svg)](https://crates.io/crates/pepl-compiler)
+[![docs.rs](https://docs.rs/pepl-compiler/badge.svg)](https://docs.rs/pepl-compiler)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 The PEPL compiler — parses PEPL source, type-checks, validates invariants, evaluates via a tree-walking interpreter, and emits WASM bytecode.
