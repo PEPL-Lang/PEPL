@@ -60,7 +60,8 @@ impl<'src> Parser<'src> {
         let first = self.expect_identifier()?;
         target.push(first);
         while self.eat(&TokenKind::Dot) {
-            let field = self.expect_identifier()?;
+            // Path segments after `.` allow keywords as field names
+            let field = self.expect_field_name()?;
             target.push(field);
         }
         self.expect(&TokenKind::Eq)?;

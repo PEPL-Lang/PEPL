@@ -393,10 +393,10 @@ impl<'src> Parser<'src> {
         Some(StateBlock { fields, span })
     }
 
-    /// Parse `name: type = expr`
+    /// Parse `name: type = expr` — keywords allowed as field names.
     fn parse_state_field(&mut self) -> Option<StateField> {
         let start = self.current_span();
-        let name = self.expect_identifier()?;
+        let name = self.expect_field_name()?;
         self.expect(&TokenKind::Colon)?;
         let type_ann = self.parse_type_annotation()?;
         self.expect(&TokenKind::Eq)?;
@@ -541,10 +541,10 @@ impl<'src> Parser<'src> {
         Some(DerivedBlock { fields, span })
     }
 
-    /// Parse `name: type = expr`
+    /// Parse `name: type = expr` — keywords allowed as field names.
     fn parse_derived_field(&mut self) -> Option<DerivedField> {
         let start = self.current_span();
-        let name = self.expect_identifier()?;
+        let name = self.expect_field_name()?;
         self.expect(&TokenKind::Colon)?;
         let type_ann = self.parse_type_annotation()?;
         self.expect(&TokenKind::Eq)?;

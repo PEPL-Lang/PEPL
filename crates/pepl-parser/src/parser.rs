@@ -182,6 +182,36 @@ impl<'src> Parser<'src> {
         }
     }
 
+    /// Expect an identifier OR any keyword used as a record field name.
+    ///
+    /// Keywords are contextually valid as field names in:
+    /// - Record type fields: `{ color: string }`
+    /// - Record literal fields: `{ color: "#ff0000" }`
+    /// - State/derived field declarations: `color: string = "#000"`
+    /// - `set` path segments after `.`: `set theme.color = "#fff"`
+    pub(crate) fn expect_field_name(&mut self) -> Option<pepl_types::ast::Ident> {
+        let kind = self.peek_kind().clone();
+        match &kind {
+            TokenKind::Identifier(name) => {
+                let name = name.clone();
+                let span = self.advance().span;
+                Some(pepl_types::ast::Ident::new(name, span))
+            }
+            _ if kind.is_keyword() => {
+                let name = kind.to_string();
+                let span = self.advance().span;
+                Some(pepl_types::ast::Ident::new(name, span))
+            }
+            _ => {
+                self.error_at_current(
+                    ErrorCode::UNEXPECTED_TOKEN,
+                    format!("expected field name, got '{}'", self.peek_kind()),
+                );
+                None
+            }
+        }
+    }
+
     /// Expect an identifier OR a module/capability keyword used as an identifier.
     /// This handles cases like `record.get(...)` where `record` is a keyword but
     /// used as a module name in qualified calls.

@@ -1414,15 +1414,15 @@ space T {
 
 #[test]
 fn nested_set_3_level_compiles() {
-    // 3-level nested set: set settings.theme.shade = "red"
-    // Note: avoid `color` as a field name — it's the KwColor keyword.
+    // 3-level nested set: set settings.theme.color = "red"
+    // Keywords like `color` are valid as record field names.
     let source = r#"
 space Settings {
   state {
-    settings: { theme: { shade: string, size: number }, lang: string } = { theme: { shade: "blue", size: 12 }, lang: "en" }
+    settings: { theme: { color: string, size: number }, lang: string } = { theme: { color: "blue", size: 12 }, lang: "en" }
   }
-  action change_shade() {
-    set settings.theme.shade = "red"
+  action change_color() {
+    set settings.theme.color = "red"
   }
   view main() -> Surface { Column { } { } }
 }

@@ -1488,29 +1488,11 @@ fn test_parse_determinism_100_iterations() {
 }
 
 #[test]
-fn test_nested_record_type_no_keyword_clash() {
-    // Nested record type in state — works when field names avoid keywords.
-    // Note: `color` is the KwColor keyword and cannot be used as a field name
-    // in record type positions (the parser's expect_identifier() fails on keywords).
+fn test_keyword_as_record_type_field_name() {
+    // Keywords like `color` are now allowed as record field names.
     let source = r#"space T {
   state {
-    settings: { theme: { clr: string, size: number }, lang: string } = { theme: { clr: "blue", size: 12 }, lang: "en" }
-  }
-}"#;
-    let result = parse(source);
-    let result = parse(source);
-    assert!(!result.errors.has_errors(), "should parse without errors");
-    assert!(result.program.is_some());
-}
-
-#[test]
-fn test_named_type_workaround() {
-    // Use named types (type aliases) to flatten record type nesting
-    let source = r#"space T {
-  type Theme = { clr: string, size: number }
-  type Settings = { theme: Theme, lang: string }
-  state {
-    settings: Settings = { theme: { clr: "blue", size: 12 }, lang: "en" }
+    settings: { theme: { color: string, size: number }, lang: string } = { theme: { color: "blue", size: 12 }, lang: "en" }
   }
 }"#;
     let result = parse(source);
@@ -1519,18 +1501,103 @@ fn test_named_type_workaround() {
 }
 
 #[test]
-fn test_3_level_nested_set_with_named_types() {
+fn test_named_type_with_keyword_fields() {
+    // Keywords in type aliases and record literals
     let source = r#"space T {
-  type Theme = { clr: string, size: number }
+  type Theme = { color: string, size: number }
   type Settings = { theme: Theme, lang: string }
   state {
-    settings: Settings = { theme: { clr: "blue", size: 12 }, lang: "en" }
+    settings: Settings = { theme: { color: "blue", size: 12 }, lang: "en" }
+  }
+}"#;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "should parse without errors");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_3_level_nested_set_with_keyword_fields() {
+    let source = r#"space T {
+  type Theme = { color: string, size: number }
+  type Settings = { theme: Theme, lang: string }
+  state {
+    settings: Settings = { theme: { color: "blue", size: 12 }, lang: "en" }
   }
   action changeColor(c: string) {
-    set settings.theme.clr = c
+    set settings.theme.color = c
   }
 }"#;
     let result = parse(source);
     assert!(!result.errors.has_errors(), "should parse without errors");
     assert!(result.program.is_some());
+}
+
+#[test]
+fn test_multiple_keywords_as_field_names() {
+    // Various keywords used as record field names in type annotations
+    let source = r#"space T {
+  state {
+    config: { type: string, action: string, state: number, match: bool } = { type: "a", action: "b", state: 0, match: true }
+  }
+}"#;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "keywords as field names should parse");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_keyword_field_in_set_path() {
+    // Keywords in set statement path segments after `.`
+    let source = r##"space T {
+  state {
+    cfg: { color: string } = { color: "#000" }
+  }
+  action update_color() {
+    set cfg.color = "#fff"
+  }
+}"##;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "keyword in set path should parse");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_keyword_field_in_derived() {
+    // Keywords as derived field names
+    let source = r#"space T {
+  state {
+    val: number = 5
+  }
+  derived {
+    result: number = val * 2
+  }
+}"#;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "keyword 'result' as derived field should parse");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_keyword_field_in_record_literal() {
+    // Keywords as record literal field names
+    let source = r##"space T {
+  state {
+    meta: { type: string, color: string } = { type: "widget", color: "#abc" }
+  }
+}"##;
+    let result = parse(source);
+    assert!(!result.errors.has_errors(), "keywords in record literal fields should parse");
+    assert!(result.program.is_some());
+}
+
+#[test]
+fn test_record_type_error_recovery_no_hang() {
+    // A malformed record type should produce errors, not hang.
+    let source = r#"space T {
+  state {
+    x: { 123: string } = { }
+  }
+}"#;
+    let result = parse(source);
+    assert!(result.errors.has_errors(), "should produce parse errors for invalid field name");
 }

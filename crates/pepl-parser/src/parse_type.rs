@@ -75,8 +75,14 @@ impl<'src> Parser<'src> {
                 let mut fields = Vec::new();
                 self.skip_newlines();
                 while !self.check_exact(&TokenKind::RBrace) && !self.at_end() {
+                    if self.too_many_errors() {
+                        break;
+                    }
                     if let Some(field) = self.parse_record_type_field() {
                         fields.push(field);
+                    } else {
+                        // Error recovery: skip to next field or closing brace
+                        self.synchronize();
                     }
                     self.eat_comma();
                     self.skip_newlines();
@@ -120,9 +126,11 @@ impl<'src> Parser<'src> {
     }
 
     /// Parse a record type field: `name?: Type`
+    ///
+    /// Keywords are allowed as field names (e.g., `{ color: string }`).
     fn parse_record_type_field(&mut self) -> Option<RecordTypeField> {
         let start = self.current_span();
-        let name = self.expect_identifier()?;
+        let name = self.expect_field_name()?;
         let optional = self.eat(&TokenKind::Question);
         self.expect(&TokenKind::Colon)?;
         let type_ann = self.parse_type_annotation()?;

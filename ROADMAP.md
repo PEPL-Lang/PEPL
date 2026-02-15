@@ -606,3 +606,33 @@
 - [x] Generated stdlib table matches `phase-0-stdlib-reference.md` content
 - [x] `cargo test --workspace` — all tests pass (577 tests)
 - [x] `cargo clippy -- -D warnings` clean
+
+---
+
+## Phase 13: Parser — Contextual Keywords & Error Recovery
+
+> Allow keywords (e.g., `color`, `type`, `state`) to be used as record field names.
+> Fix infinite-loop bug in record type parsing when a keyword appears as a field name.
+
+### 13.1 Contextual `expect_field_name()`
+- [x] Add `expect_field_name()` to `parser.rs` — accepts `Identifier` or any keyword token
+- [x] Replace `expect_identifier()` with `expect_field_name()` in 5 field-name positions:
+  - `parse_record_type_field()` in `parse_type.rs`
+  - `parse_record_literal()` in `parse_expr.rs`
+  - `parse_state_field()` in `parse_decl.rs`
+  - `parse_derived_field()` in `parse_decl.rs`
+  - `parse_set_stmt()` path segments (after `.`) in `parse_stmt.rs`
+
+### 13.2 Error Recovery — Record Type Loop
+- [x] Add `too_many_errors()` + `synchronize()` to record type while loop in `parse_type.rs` — prevents infinite loop on malformed input
+
+### 13.3 Tests
+- [x] Keyword-as-field-name tests: record types, record literals, set paths, derived fields
+- [x] Error recovery test: malformed record type produces errors without hanging
+- [x] Revert codegen test workaround (`shade` → `color`)
+- [x] All existing tests still pass (588 tests)
+
+### 13.4 Documentation
+- [x] Update `grammar.md` — RecordField/RecordTypeField rules, Reserved Keywords section
+- [x] Update `reference.md` — §3 Reserved Words contextual usage note
+- [x] Update `language-structure.md` — keyword table contextual note

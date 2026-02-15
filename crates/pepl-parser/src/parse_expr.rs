@@ -677,8 +677,8 @@ impl<'src> Parser<'src> {
                     let spread_expr = self.parse_expression()?;
                     entries.push(RecordEntry::Spread(spread_expr));
                 } else {
-                    // Field: `name: expr`
-                    let name = self.expect_identifier()?;
+                    // Field: `name: expr` — keywords allowed as field names
+                    let name = self.expect_field_name()?;
                     self.expect(&TokenKind::Colon)?;
                     let value = self.parse_expression()?;
                     entries.push(RecordEntry::Field { name, value });
