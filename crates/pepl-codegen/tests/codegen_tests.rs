@@ -227,7 +227,7 @@ fn custom_section_contains_version() {
     let wasm = compile_source(MINIMAL_SPACE);
     let data = get_custom_section_data(&wasm, "pepl").unwrap();
     let version = std::str::from_utf8(&data).unwrap();
-    assert_eq!(version, "0.1.0");
+    assert_eq!(version, env!("CARGO_PKG_VERSION"));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

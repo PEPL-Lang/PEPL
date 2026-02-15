@@ -8,5 +8,5 @@ authors.workspace = true
 description = "PEPL lexer: source text to token stream"
 
 [dependencies]
-pepl-types = { version = "0.1.0", path = "../pepl-types" }
+pepl-types = { version = "0.1.1", path = "../pepl-types" }
 thiserror.workspace = true
