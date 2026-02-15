@@ -1,6 +1,6 @@
 //! Standard library function signature registry.
 //!
-//! Registers all 88 Phase 0 stdlib function signatures so the type checker
+//! Registers all 100 Phase 0 stdlib function signatures + 2 constants so the type checker
 //! can validate qualified calls like `math.abs(x)`.
 
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ pub struct StdlibRegistry {
 }
 
 impl StdlibRegistry {
-    /// Create a new registry with all 88 Phase 0 stdlib functions.
+    /// Create a new registry with all 100 Phase 0 stdlib functions + 2 constants.
     pub fn new() -> Self {
         let mut reg = Self {
             modules: HashMap::new(),
@@ -104,7 +104,7 @@ impl StdlibRegistry {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Module registration (88 functions + 2 constants)
+    // Module registration (100 functions + 2 constants)
     // ══════════════════════════════════════════════════════════════════════
 
     /// core: 4 functions
@@ -284,7 +284,7 @@ impl StdlibRegistry {
         );
     }
 
-    /// list: 31 functions
+    /// list: 34 functions
     fn register_list(&mut self) {
         use Type::*;
         let t = || Any; // Generic T placeholder

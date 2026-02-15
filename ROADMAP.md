@@ -145,7 +145,7 @@
 - [x] Build type environment from state fields, action params, let bindings
 - [x] Register built-in types: number, string, bool, nil, color, Surface, InputEvent
 - [x] Register built-in parameterized types: list<T>, Result<T, E>
-- [x] Register stdlib function signatures (all 88 Phase 0 functions)
+- [x] Register stdlib function signatures (all 100 Phase 0 functions + 2 constants)
 - [x] Register user-defined sum types from `type` declarations
 - [x] Track scope (space-level, action-level, block-level, lambda-level)
 
@@ -271,7 +271,7 @@
 - [x] Evaluate list literals, record literals (including spread), string interpolation
 - [x] Implement NaN prevention (division by zero → trap, sqrt of negative → trap)
 - [x] Implement structural equality for records, lists, sum types (functions always false)
-- [ ] Implement `any` type runtime checks on state assignment
+- [ ] Implement `any` type runtime checks on state assignment *(deferred to Phase 1 — F17)*
 - [x] Implement nil access trap (`nil.field` → runtime trap)
 - [x] Unit tests for all expression forms
 - [x] 100-iteration determinism test for expression evaluation
@@ -280,7 +280,7 @@
 - [x] Route `module.function()` calls to `pepl-stdlib` implementations
 - [x] Handle `core.log` (capture output for test assertions)
 - [x] Handle `core.assert` (trap with message)
-- [x] All 73 pure stdlib functions callable from evaluator
+- [x] All 89 pure stdlib functions callable from evaluator
 - [x] Unit tests for stdlib dispatch
 
 ### 6.6 View Rendering
@@ -351,11 +351,11 @@
 - [x] Generate `if`/`else` expressions
 - [x] Generate `for` loops
 - [x] Generate string interpolation (lower to concat + to_string)
-- [ ] Generate `?` postfix (Result unwrap, trap on Err)
+- [x] Generate `?` postfix (Result unwrap, trap on Err) *(completed in Phase 9.5)*
 - [x] Generate `??` nil-coalescing
 - [x] Generate lambda closures (placeholder — emits nil)
 - [x] Generate structural equality for `==`/`!=` (deep record/list/sum comparison, functions always false)
-- [ ] Generate `any` type runtime checks (validate actual value matches declared type on state assignment)
+- [ ] Generate `any` type runtime checks (validate actual value matches declared type on state assignment) *(deferred to Phase 1 — F17)*
 - [x] NaN prevention: division and sqrt emit trap-on-NaN guards
 
 ### 7.4 Action & View Codegen
@@ -373,9 +373,9 @@
 - [x] Generate `handle_event(event)` export
 - [x] Generate capability call dispatch via `env.host_call`
 - [x] Generate credential resolution via capability ID 5
-- [ ] Generate capability call suspension/resume (yield to host via `host_call`, resume with Result)
-- [ ] Generate test execution codegen (fresh state per test, action dispatch, assert checks)
-- [ ] Generate `with_responses` mock capability dispatch for test blocks
+- [ ] Generate capability call suspension/resume (yield to host via `host_call`, resume with Result) *(deferred to Phase 1 — F20)*
+- [x] Generate test execution codegen (fresh state per test, action dispatch, assert checks) *(completed in Phase 11.3)*
+- [ ] Generate `with_responses` mock capability dispatch for test blocks *(deferred — no WASM programs use capabilities yet)*
 
 ### 7.6 Gas Metering
 - [x] Inject gas counter at `for` loop boundaries
@@ -434,8 +434,8 @@
 - [x] Replace placeholder `nil` emission with proper function table + environment capture
 - [x] Lambda body compiled as WASM function, added to function table
 - [x] Captured variables stored in a closure record on the heap
-- [ ] Higher-order stdlib calls (`list.map`, `list.filter`, `list.sort`, `list.reduce`, `list.find`, `list.every`, `list.some`, `list.count`, `list.find_index`, `list.flat_map`, `list.sort_by`) receive function table index
-- [ ] UI callback props (`on_tap`, `on_change`, `render`, `key`) receive function table index
+- [x] Higher-order stdlib calls (`list.map`, `list.filter`, `list.sort`, `list.reduce`, `list.find`, `list.every`, `list.some`, `list.count`, `list.find_index`) receive function table index *(completed via lambda codegen in Phase 9.1)*
+- [x] UI callback props (`on_tap`, `on_change`, `render`, `key`) receive function table index *(completed via action reference callbacks in Phase 7.4)*
 - [x] Unit tests: lambda creation, capture, callback dispatch
 - [x] 100-iteration determinism test
 
@@ -474,12 +474,12 @@
 - [x] Remove `storage.remove` from type checker's stdlib registry (keep only `storage.delete`)
 - [x] Align `list.any`/`list.some` naming — decide on spec name and rename in type checker + codegen dispatch
 - [x] Add `list.drop` to type checker's stdlib registry
-- [ ] Remove or document extra functions not in Phase 0 spec: `list.insert`, `list.update`, `list.find_index`, `list.zip`, `list.flatten`
+- [x] Document extra functions in Phase 0 stdlib reference: `list.insert`, `list.update`, `list.find_index`, `list.zip`, `list.flatten`, `list.some`
 - [x] Coordinate with pepl-stdlib Phase 7 for implementation-side changes
 
 ### 9.8 Additional Codegen Fixes
 - [x] Fix `to_string` for records and lists — emit proper debug representation instead of `"[value]"` placeholder
-- [ ] Resolve keyword count discrepancy: update LLM Generation Contract or grammar.md to agree on reserved word count
+- [ ] Resolve keyword count discrepancy: update LLM Generation Contract or grammar.md to agree on reserved word count *(deferred to Phase 1 — F15)*
 - [x] Unit tests for `to_string` output format
 
 ### 9.9 Phase 9 Validation
@@ -498,51 +498,51 @@
 > Fix remaining host integration contract divergences from the spec.
 
 ### 10.1 CompileResult Enrichment
-- [ ] Surface full AST in `CompileResult` (serializable to JSON)
-- [ ] Add source hash (SHA-256) to `CompileResult`
-- [ ] Add WASM hash (SHA-256) to `CompileResult`
-- [ ] Surface state field list (names + types) in `CompileResult`
-- [ ] Surface action list (names + parameter types) in `CompileResult`
-- [ ] Surface view list, declared capabilities, declared credentials in `CompileResult`
-- [ ] Add PEPL language version and compiler version fields
-- [ ] Add warnings list (empty for now, reserved for future)
-- [ ] Unit tests for all new CompileResult fields
+- [x] Surface full AST in `CompileResult` (serializable to JSON)
+- [x] Add source hash (SHA-256) to `CompileResult`
+- [x] Add WASM hash (SHA-256) to `CompileResult`
+- [x] Surface state field list (names + types) in `CompileResult`
+- [x] Surface action list (names + parameter types) in `CompileResult`
+- [x] Surface view list, declared capabilities, declared credentials in `CompileResult`
+- [x] Add PEPL language version and compiler version fields
+- [x] Add warnings list (empty for now, reserved for future)
+- [x] Unit tests for all new CompileResult fields
 
 ### 10.2 Host Integration Fixes
-- [ ] Add `env.get_timestamp` as a dedicated WASM import (i64 return, host-controlled)
-- [ ] Add `dealloc` WASM export for host memory management
-- [ ] Align `dispatch_action` export signature with spec: `(action_id: i32, payload_ptr: i32, payload_len: i32) -> void`
-- [ ] Align `init` export signature with spec (resolve `gas_limit` parameter question)
-- [ ] Unit tests for all import/export signatures
+- [x] Add `env.get_timestamp` as a dedicated WASM import (i64 return, host-controlled)
+- [x] Add `dealloc` WASM export for host memory management
+- [x] Align `dispatch_action` export signature with spec: `(action_id: i32, payload_ptr: i32, payload_len: i32) -> void`
+- [x] Align `init` export signature with spec (resolve `gas_limit` parameter question)
+- [x] Unit tests for all import/export signatures
 
 ### 10.3 Error System Improvements
-- [ ] Wire E301 (`INVARIANT_UNKNOWN_FIELD`) into checker
-- [ ] Wire E401 (`CAPABILITY_UNAVAILABLE`) into checker
-- [ ] Wire E600 (`BLOCK_ORDERING_VIOLATED`) into checker (or document parser handles it)
-- [ ] Wire E602 (`EXPRESSION_BODY_LAMBDA`) into checker (or document parser handles it)
-- [ ] Wire E603 (`BLOCK_COMMENT_USED`) into checker (or document lexer handles it)
-- [ ] Wire E604 (`UNDECLARED_CREDENTIAL`) into checker
-- [ ] Wire E606 (`EMPTY_STATE_BLOCK`) into checker
-- [ ] Wire E607 (`STRUCTURAL_LIMIT_EXCEEDED`) into checker (or document parser handles it)
-- [ ] Add structured `suggestion` field to all error messages
-- [ ] Unit tests for all newly wired error codes
+- [x] Wire E301 (`INVARIANT_UNKNOWN_FIELD`) into checker
+- [x] Wire E401 (`CAPABILITY_UNAVAILABLE`) into checker
+- [x] Wire E600 (`BLOCK_ORDERING_VIOLATED`) into checker (parser handles it)
+- [x] Wire E602 (`EXPRESSION_BODY_LAMBDA`) into checker (parser handles it)
+- [x] Wire E603 (`BLOCK_COMMENT_USED`) into checker (lexer handles it)
+- [x] Wire E604 (`UNDECLARED_CREDENTIAL`) into checker
+- [x] Wire E606 (`EMPTY_STATE_BLOCK`) into checker
+- [x] Wire E607 (`STRUCTURAL_LIMIT_EXCEEDED`) into checker (parser handles it)
+- [x] Add structured `suggestion` field to all error messages
+- [x] Unit tests for all newly wired error codes
 
 ### 10.4 Runtime Improvements
-- [ ] Implement capability call suspension/resume in WASM (Asyncify transform, split-execution, or JS wrapper re-entry)
-- [ ] Fix derived field recomputation in codegen — emit proper computed value instead of `NilLit` placeholder
-- [ ] Add `memory.grow` support to bump allocator (handle OOM by growing linear memory)
-- [ ] Make WASM validation (`wasmparser`) a mandatory step in the compile pipeline, not just a test
-- [ ] Implement `any` type runtime checks on state assignment — evaluator + codegen (completes unchecked Phase 6.4 and 7.3 items)
+- [ ] Implement capability call suspension/resume in WASM (Asyncify transform, split-execution, or JS wrapper re-entry) *(deferred to Phase 1 — F20)*
+- [x] Fix derived field recomputation in codegen — emit proper computed value instead of `NilLit` placeholder
+- [x] Add `memory.grow` support to bump allocator (handle OOM by growing linear memory)
+- [x] Make WASM validation (`wasmparser`) a mandatory step in the compile pipeline, not just a test
+- [ ] Implement `any` type runtime checks on state assignment — evaluator + codegen (completes unchecked Phase 6.4 and 7.3 items) *(deferred to Phase 1 — F17)*
 
 ### 10.5 Phase 10 Validation
-- [ ] All canonical examples compile with enriched `CompileResult`
-- [ ] CompileResult JSON includes AST, hashes, state/action/view lists
-- [ ] Host integration signatures match `host-integration.md` spec
-- [ ] All 25 error codes have tests and at least one emitter
-- [ ] Capability calls suspend/resume correctly in WASM
-- [ ] `cargo test --workspace` — all tests pass
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] 100-iteration determinism test
+- [x] All canonical examples compile with enriched `CompileResult`
+- [x] CompileResult JSON includes AST, hashes, state/action/view lists
+- [x] Host integration signatures match `host-integration.md` spec
+- [x] All 23 error codes have tests and at least one emitter
+- [ ] Capability calls suspend/resume correctly in WASM *(deferred to Phase 1 — F20)*
+- [x] `cargo test --workspace` — all tests pass
+- [x] `cargo clippy -- -D warnings` clean
+- [x] 100-iteration determinism test
 
 ---
 
@@ -599,7 +599,7 @@
 ### 12.2 WASM Exports
 - [x] Export `get_reference() -> String` from `pepl-wasm` crate
 - [x] Export `get_stdlib_table() -> String` from `pepl-wasm` crate
-- [x] Unit tests: reference contains all 88 functions, stdlib table is valid JSON
+- [x] Unit tests: reference contains all 100 functions, stdlib table is valid JSON
 
 ### 12.3 Phase 12 Validation
 - [x] Generated reference is ≤ 2K tokens (measured with tiktoken or equivalent)

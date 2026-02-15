@@ -539,8 +539,8 @@ mod tests {
         let total = parsed["total_functions"].as_u64().unwrap();
         // The registry has functions for all 13 modules
         assert!(
-            total >= 88,
-            "Expected at least 88 functions, got {}",
+            total >= 100,
+            "Expected at least 100 functions, got {}",
             total
         );
     }
