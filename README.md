@@ -1,8 +1,11 @@
 # pepl
 
+[![crates.io](https://img.shields.io/crates/v/pepl-compiler.svg)](https://crates.io/crates/pepl-compiler)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 The PEPL compiler — parses PEPL source, type-checks, validates invariants, evaluates via a tree-walking interpreter, and emits WASM bytecode.
 
-**Status:** Phase 12 (LLM-First Tooling) complete. Full end-to-end pipeline: source → `.wasm`. All 7 canonical examples compile through the complete pipeline with 100-iteration determinism. Browser-ready via `pepl-wasm` crate. Machine-generated LLM reference and stdlib table available. See [ROADMAP.md](ROADMAP.md) for progress.
+**Status:** Phase 13 (Contextual Keywords & Error Recovery) complete. Full end-to-end pipeline: source → `.wasm`. All 7 canonical examples compile through the complete pipeline with 100-iteration determinism. Browser-ready via `pepl-wasm` crate. Machine-generated LLM reference and stdlib table available. See [ROADMAP.md](ROADMAP.md) for progress.
 
 ## Architecture
 
@@ -58,10 +61,10 @@ let table = reference::generate_stdlib_table();
 
 ## Tests
 
-577 tests across the workspace:
+588 tests across the workspace:
 - `pepl-types`: 33 (error infrastructure, spans, AST diff)
 - `pepl-lexer`: 80 (64 lexer + 16 token)
-- `pepl-parser`: 121 (64 parser + 57 edge cases)
+- `pepl-parser`: 132 (64 parser + 57 edge cases + 11 contextual keywords)
 - `pepl-compiler`: 155 (70 type checker + 17 invariant checker + 12 M2 gate + 8 error code coverage + 22 pipeline + 14 LLM reference + 11 determinism/parity + 1 integration)
 - `pepl-eval`: 87 (35 core eval + 52 canonical examples including test runner, game loop, determinism, golden reference)
 - `pepl-codegen`: 101 (62 core codegen + 16 test codegen + 6 source map + 17 canonical/integration)

@@ -14,7 +14,7 @@ let tokens: LexResult = Lexer::new(source, "example.pepl").lex();
 
 ## Token Kinds
 
-Numbers, strings, booleans, `nil`, identifiers, all PEPL keywords (`space`, `state`, `actions`, `render`, `pipe`, `match`, `if`, `for`, etc.), operators, delimiters, and comments.
+Numbers, strings, booleans, `nil`, identifiers, all PEPL keywords (`space`, `state`, `action`, `view`, `match`, `if`, `for`, `let`, `set`, etc.), operators, delimiters, and comments.
 
 ## Install
 

@@ -18,7 +18,7 @@ let result = evaluator.eval_program(&ast)?;
 
 ## Features
 
-- **Full PEPL semantics** — spaces, actions, pipes, render, match, UI components
+- **Full PEPL semantics** — spaces, actions, views, match, UI components
 - **Test runner** — `run_tests` executes PEPL test blocks and reports pass/fail
 - **Deterministic** — same inputs always produce same outputs
 - **Stdlib integration** — calls into `pepl-stdlib` for all built-in functions

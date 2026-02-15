@@ -14,7 +14,7 @@ let wasm: Result<Vec<u8>, _> = compile(source, "counter.pepl");
 
 // Full compilation with metadata
 let result: CompileResult = compile_to_result(source, "counter.pepl");
-// result.success, result.wasm, result.errors, result.ast_hash, result.wasm_hash, ...
+// result.success, result.wasm, result.errors, result.source_hash, result.wasm_hash, ...
 
 // Type-check only (no WASM generation)
 let errors = type_check(source, "counter.pepl");
@@ -28,9 +28,16 @@ pub struct CompileResult {
     pub wasm: Option<Vec<u8>>,
     pub errors: CompileErrors,
     pub ast: Option<Program>,
-    pub ast_hash: Option<String>,
+    pub source_hash: String,
     pub wasm_hash: Option<String>,
-    pub metadata: Option<SpaceMetadata>,
+    pub state_fields: Vec<FieldInfo>,
+    pub actions: Vec<ActionInfo>,
+    pub views: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub credentials: Vec<FieldInfo>,
+    pub language_version: String,
+    pub compiler_version: String,
+    pub warnings: Vec<PeplError>,
     pub source_map: Option<SourceMap>,
 }
 ```
